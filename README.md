@@ -15,6 +15,16 @@ Builds are saved in the browser on the device they were made on. To edit a build
 
 Everything runs in the browser, and nothing is uploaded.
 
+## Photo editor
+
+After a photo is taken (or with **✏️ Edit photo** on any step) a full editor opens: crop with presets (Free, Slide, 1:1, 4:3, 3:4), rotate, mirror, straighten, **remove background**, adjust (Auto, brightness, contrast, saturation, warmth, whites, sharpen) and mark (arrows, circles and boxes in four colours). The original photo is kept, so edits can be changed later without losing quality.
+
+**Background removal** runs on the phone with [ISNet](https://github.com/xuebinqin/DIS) (via [transformers.js](https://huggingface.co/docs/transformers.js)). The model is downloaded once from Hugging Face: 84 MB on phones whose browser has a GPU with 16-bit support (under a second per photo), 42 MB otherwise (processor only, about 20–40 seconds). Erase and Restore brushes fix anything the model gets wrong.
+
+## Licence
+
+GNU AGPL-3.0 (see `LICENSE`), because the background-removal model (ISNet) is AGPL-3.0. Anyone may use the app, including commercially, and its source code stays public here. Decks, photos and build files made with the app are yours and are not affected.
+
 ## Parts libraries
 
 `public/library/kits.json` lists the kits; each kit has a folder of pictures and a `parts.json` (`id`, `name`, `file`, `w`, `h`).

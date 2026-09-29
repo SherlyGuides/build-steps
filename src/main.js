@@ -1,4 +1,5 @@
-import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, putImage, saveBuild, uid } from "./db.js";
+import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, uid } from "./db.js";
+import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
 import { LAYOUT, MOVES, bomCell, fittedSize, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, moveIconBox, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -40,6 +41,41 @@ async function photoUrl(photo) {
   }
   return photoUrls.get(photo.id);
 }
+// ---------------------------------------------------------------------------
+// Step photos: the original is kept, the slide photo is rendered from it + edits.
+// ---------------------------------------------------------------------------
+
+/** Store a new original (from camera or gallery). With edit, the photo editor opens first. */
+async function newPhoto(shot, { edit }) {
+  const original = { id: uid(), w: shot.w, h: shot.h };
+  await putImage(original.id, shot.blob);
+  const edited = edit ? await editPhoto(shot.blob, blankEdits()) : null;
+  const out = edited ?? await renderPhoto(shot.blob);
+  const photo = { id: uid(), w: out.w, h: out.h, original, edits: edited?.edits ?? blankEdits(), maskId: null };
+  if (edited?.maskBlob) { photo.maskId = uid(); await putImage(photo.maskId, edited.maskBlob); }
+  await putImage(photo.id, out.blob);
+  return photo;
+}
+
+/** Reopen the editor on a step photo. Resolves to the new photo, or null if cancelled. */
+async function reEditPhoto(photo) {
+  const original = photo.original ?? { id: photo.id, w: photo.w, h: photo.h }; // photos from before the editor
+  const originalBlob = await getImage(original.id);
+  if (!originalBlob) throw new Error("This photo's original is missing, so it cannot be edited. Retake it instead.");
+  const edited = await editPhoto(originalBlob, photo.edits, photo.maskId ? await getImage(photo.maskId) : null);
+  if (!edited) return null;
+  const next = { id: uid(), w: edited.w, h: edited.h, original, edits: edited.edits, maskId: photo.maskId ?? null };
+  if (edited.maskBlob) { next.maskId = uid(); await putImage(next.maskId, edited.maskBlob); }
+  await putImage(next.id, edited.blob);
+  const keep = new Set(photoImageIds(next));
+  for (const id of photoImageIds(photo)) if (!keep.has(id)) { forgetPhoto(id); await deleteImage(id); }
+  return next;
+}
+
+async function dropPhoto(photo) {
+  for (const id of photoImageIds(photo)) { forgetPhoto(id); await deleteImage(id); }
+}
+
 function forgetPhoto(id) {
   const url = photoUrls.get(id);
   if (url) URL.revokeObjectURL(url);
@@ -116,6 +152,7 @@ async function renderHome() {
           <span class="meta">${b.steps.length} step${b.steps.length === 1 ? "" : "s"} · edited ${new Date(b.updatedAt).toLocaleDateString()}</span>
         </a></li>`).join("")}</ul>`
       : `<div class="empty"><h2>No builds yet</h2><p>Start a build, photograph each step, pick the parts it uses and write the instruction. Generate Deck makes the PowerPoint.</p></div>`}
+      <p class="source-link"><a href="https://github.com/SherlyGuides/build-steps" target="_blank" rel="noopener">Source code</a> · AGPL-3.0</p>
     </section>
     <footer class="actions">
       <button class="btn secondary" id="import">Open build file</button>
@@ -221,8 +258,7 @@ async function addStep(build, at) {
   const step = { id: uid(), instruction: "", move: null, parts: [], photo: null };
   const shot = await shooting;
   if (shot) {
-    step.photo = { id: uid(), w: shot.w, h: shot.h };
-    await putImage(step.photo.id, shot.blob);
+    try { step.photo = await newPhoto(shot, { edit: true }); } catch (error) { fail(error); }
   }
   const fresh = await getBuild(build.id);
   fresh.steps.splice(at, 0, step);
@@ -242,9 +278,7 @@ async function addStepsFromGallery(build) {
   try {
     for (const [i, file] of files.entries()) {
       busy(true, `Adding photo ${i + 1} of ${files.length}…`);
-      const shot = await preparePhoto(file);
-      const photo = { id: uid(), w: shot.w, h: shot.h };
-      await putImage(photo.id, shot.blob);
+      const photo = await newPhoto(await preparePhoto(file), { edit: false });
       steps.push({ id: uid(), instruction: "", move: null, parts: [], photo });
     }
   } catch (error) {
@@ -289,7 +323,7 @@ async function buildMenu(build) {
     } catch (error) { busy(false); fail(error); }
   } else if (choice === "delete") {
     if (!(await confirmDialog("Delete this build?", `"${build.name}" and its ${build.steps.length} step photos will be removed from this phone. Decks already made are not affected.`, "Delete"))) return;
-    build.steps.forEach(s => s.photo && forgetPhoto(s.photo.id));
+    build.steps.forEach(s => photoImageIds(s.photo).forEach(forgetPhoto));
     await deleteBuild(build);
     location.hash = "#/";
   }
@@ -496,6 +530,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
 
         <div class="field">
           <h3>1 · Step photo</h3>
+          ${step.photo ? `<button class="btn primary wide" id="edit-photo">✏️ Edit photo · crop, background, marks</button>` : ""}
           <div class="row">
             <button class="btn ${step.photo ? "secondary" : "primary"}" id="camera">${step.photo ? "Retake photo" : "Take photo"}</button>
             <button class="btn secondary" id="gallery">From gallery</button>
@@ -561,6 +596,15 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     $("#instruction").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
     $("#camera").addEventListener("click", () => setPhoto("camera"));
     $("#gallery").addEventListener("click", () => setPhoto("gallery"));
+    $("#edit-photo")?.addEventListener("click", async () => {
+      try {
+        const next = await reEditPhoto(step.photo);
+        if (!next) return;
+        step.photo = next;
+        await save();
+        await draw();
+      } catch (error) { fail(error); }
+    });
     $("#add-part")?.addEventListener("click", () => { location.hash = `${here}/parts`; });
     app.querySelectorAll("[data-move]").forEach(b => b.addEventListener("click", async () => {
       const move = b.dataset.move || null;
@@ -593,11 +637,9 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       const shot = await takePhoto(source);
       if (!shot) return;
       const old = step.photo;
-      const photo = { id: uid(), w: shot.w, h: shot.h };
-      await putImage(photo.id, shot.blob);
-      step.photo = photo;
+      step.photo = await newPhoto(shot, { edit: true });
       await save();
-      if (old) { forgetPhoto(old.id); await deleteImage(old.id); }
+      if (old) await dropPhoto(old);
       await draw();
     } catch (error) { fail(error); }
   };
@@ -619,7 +661,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
 async function removeStep(build, step) {
   build.steps = build.steps.filter(s => s.id !== step.id);
   await saveBuild(build);
-  if (step.photo) { forgetPhoto(step.photo.id); await deleteImage(step.photo.id); }
+  if (step.photo) await dropPhoto(step.photo);
 }
 
 // A new step left completely empty is dropped when the user leaves it.

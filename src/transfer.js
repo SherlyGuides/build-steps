@@ -1,7 +1,8 @@
 import JSZip from "jszip";
-import { getImage, putImage, saveBuild, uid } from "./db.js";
+import { getImage, photoImageIds, putImage, saveBuild, uid } from "./db.js";
 
-// A build file is a .zip holding build.json and every step photo, so a build can be moved to
+// A build file is a .zip holding build.json and every step picture (slide photo, original and
+// background cut-out, so photos stay editable), so a build can be moved to
 // another phone or kept as a backup and reopened later.
 
 const FORMAT = "thinkpro-build-steps";
@@ -15,9 +16,10 @@ export async function exportBuild(build) {
   const zip = new JSZip();
   zip.file("build.json", JSON.stringify({ format: FORMAT, version: 1, build }, null, 1));
   for (const step of build.steps) {
-    if (!step.photo) continue;
-    const blob = await getImage(step.photo.id);
-    if (blob) zip.file(`photos/${step.photo.id}.jpg`, blob);
+    for (const id of photoImageIds(step.photo)) {
+      const blob = await getImage(id);
+      if (blob) zip.file(`photos/${id}${id === step.photo.maskId ? ".png" : ".jpg"}`, blob);
+    }
   }
   return zip.generateAsync({ type: "blob", mimeType: "application/zip" });
 }
@@ -36,10 +38,23 @@ export async function importBuild(file) {
   const steps = [];
   for (const step of source.steps) {
     let photo = null;
-    const entry = step.photo && zip.file(`photos/${step.photo.id}.jpg`);
-    if (entry) {
-      photo = { ...step.photo, id: uid() };
-      await putImage(photo.id, new Blob([await entry.async("arraybuffer")], { type: "image/jpeg" }));
+    // Each stored picture gets a new id so an imported build never overwrites one on this phone.
+    const copy = async (id, type) => {
+      const entry = id && zip.file(`photos/${id}${type === "image/png" ? ".png" : ".jpg"}`);
+      if (!entry) return null;
+      const fresh = uid();
+      await putImage(fresh, new Blob([await entry.async("arraybuffer")], { type }));
+      return fresh;
+    };
+    const slideId = step.photo && await copy(step.photo.id, "image/jpeg");
+    if (slideId) {
+      const originalId = step.photo.original && (step.photo.original.id === step.photo.id ? slideId : await copy(step.photo.original.id, "image/jpeg"));
+      photo = {
+        ...step.photo, id: slideId,
+        original: originalId ? { ...step.photo.original, id: originalId } : null,
+        maskId: await copy(step.photo.maskId, "image/png"),
+      };
+      if (!photo.maskId && photo.edits) photo.edits = { ...photo.edits, cutout: null };
     }
     steps.push({
       id: uid(),

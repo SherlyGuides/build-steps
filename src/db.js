@@ -1,8 +1,10 @@
 // Builds and their pictures live in the app's IndexedDB, so they survive restarts and can be
 // reopened later to change a picture or an instruction and generate a new deck.
 //   builds: { id, name, grade, session, kit, deckVersion, showPartNames, steps: [...], createdAt, updatedAt }
-//   step:   { id, instruction, photo: { id, w, h } | null, parts: [{ id, qty }] }
-//   images: Blob keyed by photo id
+//   step:   { id, instruction, move, parts: [{ id, qty }], photo }
+//   photo:  { id, w, h, original: { id, w, h }, edits, maskId } — id is the picture on the slide,
+//           rendered from the original + edits (photo-editor.js); maskId is the background cut-out
+//   images: Blob keyed by id
 
 const DB_NAME = "build-steps";
 let opening;
@@ -41,8 +43,13 @@ export const getImage = id => run("images", "readonly", s => s.get(id));
 export const putImage = (id, blob) => run("images", "readwrite", s => s.put(blob, id));
 export const deleteImage = id => run("images", "readwrite", s => s.delete(id));
 
+/** Every stored picture a step photo uses: the slide picture, its original and its cut-out. */
+export function photoImageIds(photo) {
+  return photo ? [...new Set([photo.id, photo.original?.id, photo.maskId].filter(Boolean))] : [];
+}
+
 export async function deleteBuild(build) {
-  for (const step of build.steps) if (step.photo) await deleteImage(step.photo.id);
+  for (const step of build.steps) for (const id of photoImageIds(step.photo)) await deleteImage(id);
   await run("builds", "readwrite", s => s.delete(build.id));
 }
 

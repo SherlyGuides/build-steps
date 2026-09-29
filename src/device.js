@@ -1,7 +1,9 @@
 // Phone features through the browser: taking step photos and saving or sharing decks and
 // build files. Works in Safari on iPhone/iPad, Chrome on Android and any desktop browser.
 
-const MAX_PHOTO_SIDE = 1600;
+// Originals are kept at up to 2000 px so a photo can be cropped later without going soft.
+// The photo on the slide is rendered from the original by the photo editor (1600 px).
+const ORIGINAL_SIDE = 2000;
 
 // The input stays in the page until it is used: iOS Safari ignores clicks on detached inputs.
 function pickFiles(accept, { capture = false, multiple = false } = {}) {
@@ -26,13 +28,12 @@ function loadImage(src) {
   });
 }
 
-// Photos are shrunk to 1600 px on the long side so a 200-step deck stays a sensible size.
 // Browsers apply the photo's EXIF rotation when drawing, so portrait shots stay upright.
 async function shrink(file) {
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url);
-    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const scale = Math.min(1, ORIGINAL_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(img.naturalWidth * scale);
     canvas.height = Math.round(img.naturalHeight * scale);
@@ -40,14 +41,14 @@ async function shrink(file) {
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.86));
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
     return { blob, w: canvas.width, h: canvas.height };
   } finally {
     URL.revokeObjectURL(url);
   }
 }
 
-/** source: "camera" | "gallery". Resolves to { blob, w, h } or null when cancelled. */
+/** source: "camera" | "gallery". Resolves to the original { blob, w, h } or null when cancelled. */
 export async function takePhoto(source) {
   const [file] = await pickFiles("image/*", { capture: source === "camera" });
   return file ? shrink(file) : null;
