@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Build Steps: instruction rephrasing proxy (Google Gemini).
 
-The phone app sends one step's instruction (plus its parts, grade and step type) here; this
-service asks Gemini for three rewrites and returns them. It exists so the API key stays on the
+The phone app sends one step's instruction, its parts, the parts added in the previous steps and
+(when there is one) the step photo here; this service asks Gemini for three instructions that say
+which part to take and onto which part it goes, and returns them. It exists so the API key stays on the
 server and never appears in the public web app. Python standard library only.
 
-    POST /rephrase   {"instruction", "parts": [{"name", "qty"}], "move", "grade", "step"}
+    POST /rephrase   {"instruction", "parts": [{"name", "qty"}], "move", "grade", "step",
+                      "history": [{"step", "parts": [{"name", "qty"}], "move"}],
+                      "onto": [part names the builder says it goes onto], "photo": base64 JPEG}
                   -> {"suggestions": [{"label", "text"}, ...]}
     GET  /health  -> {"ok": true}
 
@@ -44,26 +47,29 @@ ALLOWED_ORIGINS = {
 MAX_INSTRUCTION_CHARS = 300
 MAX_PARTS = 20
 MAX_PART_NAME_CHARS = 120
-MAX_BODY_BYTES = 8_000
+MAX_HISTORY_STEPS = 8
+MAX_PHOTO_BASE64 = 700_000     # about 500 KB of JPEG; the app sends about 700 px
+MAX_BODY_BYTES = 800_000
 
 # Abuse limits, kept in memory (reset when the service restarts). The Gemini free tier
 # has its own daily limit as well.
 PER_IP_PER_HOUR = 120
 ALL_PER_DAY = 1_000
 
-SYSTEM_PROMPT = """You rewrite build-instruction sentences for ThinkPro Academy PowerPoint decks. Each slide shows one step of building a model from a construction kit (bricks, plates, Technic parts, wheels, gears, motors): the instruction appears as one highlighted line above a photo of the step.
+SYSTEM_PROMPT = """You write build-instruction sentences for ThinkPro Academy PowerPoint decks. Each slide shows one step of building a model from a construction kit (bricks, plates, Technic parts, wheels, gears): the instruction appears as one highlighted line above a photo of the step.
 
-House style for an instruction:
-- One sentence, an instruction to the student, starting with a verb such as Take, Fix, Attach, Push, Slide, Place, Connect, Turn or Flip.
-- Use the parts from the parts list you are given, with their sizes such as "1 x 4". You may put a part name in natural English order ("Brick 1 x 4" -> "1 x 4 brick", "Technic, Brick 1 x 2 with Holes" -> "1 x 2 Technic brick with holes") but keep its words and sizes. Never invent parts, sizes or colours that are not in the list or the original text.
-- Keep every fact from the original: which parts, how many, and where they go. Do not add steps or advice.
-- Correct plurals ("2 Technic Bushes"). Plain words a child in the given grade can read. At most 20 words. No ending full stop, no emoji, no quotation marks.
+A good instruction names BOTH parts: the part(s) to take, with how many, and the part already in the model that they go onto, with where. Example: "Take a 1 x 4 brick and fix it on top of the 1 x 4 Technic brick, leaving the front row of studs free".
+- The part being attached to is one of the parts already in the model (listed step by step). When the builder has said which part it goes onto, always use exactly that part. Otherwise, when a photo is given, look at it to see which part the new part sits on; do not simply assume it is the part from the previous step.
+- When a photo is given, add the position on that part: which side, row or end, and how many studs it covers or leaves free (for example "on the back row of studs", "covering the last 2 studs on the right"). Count studs carefully; if you cannot see them clearly, leave the stud detail out. Without a photo, never invent stud positions or sides; say "on top of", "under" or "next to" the part.
+- For a step where the model is flipped or turned (no part added), say how to move the model instead.
+- Use the part names from the lists, in natural English order ("Brick 1 x 4" -> "1 x 4 brick", "Technic, Brick 1 x 2 with Holes" -> "1 x 2 Technic brick with holes"), keeping their words and sizes. Never invent parts, sizes or colours.
+- One sentence starting with a verb (Take, Fix, Attach, Push, Slide, Place, Connect, Turn, Flip). Correct plurals ("2 Technic Bushes"). Plain words a child in the given grade can read. At most 28 words. No ending full stop, no emoji, no quotation marks.
 
 Return exactly three suggestions:
-1. label "Corrected": the original with spelling, grammar and part names fixed, wording otherwise unchanged.
-2. label "Clearer": reworded so a student understands it at a glance.
-3. label "Shorter": the shortest version that keeps every fact.
-If the original is empty, write three different instructions from the parts and step type instead, labelled "Suggestion 1", "Suggestion 2" and "Suggestion 3"."""
+1. label "Corrected": the original instruction with spelling, grammar and part names fixed and the missing part or position added.
+2. label "Clearer": reworded so a student understands at a glance.
+3. label "Shorter": the shortest version that still names both parts.
+If the original is empty, write three different instructions instead, labelled "Suggestion 1", "Suggestion 2" and "Suggestion 3"."""
 
 RESPONSE_SCHEMA = {
     "type": "OBJECT",
@@ -116,38 +122,74 @@ def clean(value, limit: int) -> str:
     return " ".join(str(value or "").split())[:limit]
 
 
-def build_request(body: dict) -> str:
-    instruction = clean(body.get("instruction"), MAX_INSTRUCTION_CHARS)
-    parts = []
-    for part in (body.get("parts") or [])[:MAX_PARTS]:
+MOVE_TEXT = {"flip": "the model is flipped upside down (no part added)",
+             "turn": "the model is turned around (no part added)"}
+
+
+def part_list(parts) -> list[str]:
+    out = []
+    for part in (parts or [])[:MAX_PARTS] if isinstance(parts, list) else []:
         if not isinstance(part, dict):
             continue
         name = clean(part.get("name"), MAX_PART_NAME_CHARS)
         qty = part.get("qty") if isinstance(part.get("qty"), int) and 0 < part.get("qty") < 1000 else 1
         if name:
-            parts.append(f"- {name} (quantity {qty})")
-    move = {"flip": "The assembly is flipped upside down; no part is added.",
-            "turn": "The assembly is turned around; no part is added."}.get(body.get("move"), "")
+            out.append(f"{name} (quantity {qty})")
+    return out
+
+
+def build_request(body: dict, has_photo: bool) -> str:
+    instruction = clean(body.get("instruction"), MAX_INSTRUCTION_CHARS)
     grade = body.get("grade") if isinstance(body.get("grade"), int) and 1 <= body.get("grade") <= 12 else None
-    lines = [
-        f"Grade: {grade}" if grade else "Grade: not given",
-        f"Step number: {body['step']}" if isinstance(body.get("step"), int) else "",
-        "Parts used in this step:\n" + "\n".join(parts) if parts else "Parts used in this step: none listed",
-        move,
-        f"Original instruction: {instruction}" if instruction else "Original instruction: (empty)",
-    ]
-    return "\n".join(line for line in lines if line)
+    lines = [f"Grade: {grade}" if grade else "Grade: not given"]
+    if isinstance(body.get("step"), int):
+        lines.append(f"Step number: {body['step']}")
+    history = body.get("history") if isinstance(body.get("history"), list) else []
+    if history:
+        lines.append("Already in the model (earlier steps, oldest first):")
+        for item in history[-MAX_HISTORY_STEPS:]:
+            if not isinstance(item, dict):
+                continue
+            what = MOVE_TEXT.get(item.get("move")) or ", ".join(part_list(item.get("parts"))) or "(nothing listed)"
+            label = f"Step {item['step']}" if isinstance(item.get("step"), int) else "Earlier step"
+            lines.append(f"- {label}: {what}")
+    else:
+        lines.append("Already in the model: nothing yet (this is the first step)")
+    if body.get("move") in MOVE_TEXT:
+        lines.append(f"This step: {MOVE_TEXT[body['move']]}")
+    else:
+        parts = part_list(body.get("parts"))
+        lines.append("Parts added in this step: " + ("; ".join(parts) if parts else "none listed"))
+    onto = [clean(name, MAX_PART_NAME_CHARS) for name in (body.get("onto") or [])[:4] if isinstance(name, str) and name.strip()] if isinstance(body.get("onto"), list) else []
+    if onto:
+        lines.append("The builder says it goes onto: " + " and ".join(onto))
+    lines.append("A photo of the model after this step is attached." if has_photo else "No photo of this step.")
+    lines.append(f"Original instruction: {instruction}" if instruction else "Original instruction: (empty)")
+    return "\n".join(lines)
 
 
-def ask_gemini(model: str, prompt: str) -> list[dict]:
+def photo_of(body: dict) -> str | None:
+    """The step photo as base64 JPEG, or None when missing or unusable."""
+    photo = body.get("photo")
+    if not isinstance(photo, str) or not photo or len(photo) > MAX_PHOTO_BASE64:
+        return None
+    if photo.startswith("data:"):
+        photo = photo.split(",", 1)[-1]
+    return photo if photo[:4] == "/9j/" else None  # JPEG files start with FF D8 FF
+
+
+def ask_gemini(model: str, prompt: str, photo: str | None) -> list[dict]:
+    parts = [{"text": prompt}]
+    if photo:
+        parts.insert(0, {"inline_data": {"mime_type": "image/jpeg", "data": photo}})
     payload = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {
             "responseMimeType": "application/json",
             "responseSchema": RESPONSE_SCHEMA,
             "temperature": 0.3,
-            "maxOutputTokens": 500,
+            "maxOutputTokens": 600,
             "thinkingConfig": {"thinkingLevel": "minimal"},
         },
     }
@@ -165,11 +207,12 @@ def ask_gemini(model: str, prompt: str) -> list[dict]:
 
 
 def suggest(body: dict) -> list[dict]:
-    prompt = build_request(body)
+    photo = photo_of(body)
+    prompt = build_request(body, bool(photo))
     last_error = None
     for model in MODELS:
         try:
-            raw = ask_gemini(model, prompt)
+            raw = ask_gemini(model, prompt, photo)
             break
         except urllib.error.HTTPError as error:
             detail = error.read()[:300].decode(errors="replace")

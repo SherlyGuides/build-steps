@@ -1,5 +1,7 @@
 // "✨ Improve with AI": asks the Build Steps AI proxy (server/rephrase_proxy.py, on the
-// Lesson Foundry EC2 server) for three rewrites of a step's instruction. The proxy holds the
+// Lesson Foundry EC2 server) for three rewrites of a step's instruction that name both the part
+// being added and the part it goes onto (from the "Goes onto" choice, the earlier steps and the
+// step photo). The proxy holds the
 // Gemini API key, so no key is ever in this public app.
 
 export const AI_URL = "https://51-21-180-129.sslip.io/rephrase";
@@ -19,8 +21,23 @@ async function reachable() {
   }
 }
 
+// The step photo goes along (about 700 px JPEG) so the AI can see where the new part sits.
+const PHOTO_SIDE = 700;
+async function photoForAI(blob) {
+  if (!blob) return null;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = Object.assign(document.createElement("canvas"), { width: Math.round(bitmap.width * scale), height: Math.round(bitmap.height * scale) });
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+  } catch {
+    return null; // suggestions still work without the photo
+  }
+}
+
 /** Resolves to [{ label, text }] or throws an Error with a message for the user. */
-export async function suggestInstructions({ instruction, parts, move, grade, step }) {
+export async function suggestInstructions({ instruction, parts, move, grade, step, history, onto, photo }) {
   if (!navigator.onLine) throw new Error("You are offline. AI suggestions need the internet.");
   if (!(await reachable())) throw new Error("The AI server is not reachable right now, so no suggestions. You can still type the instruction yourself.");
   const controller = new AbortController();
@@ -30,7 +47,7 @@ export async function suggestInstructions({ instruction, parts, move, grade, ste
     response = await fetch(AI_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ instruction, parts, move, grade, step }),
+      body: JSON.stringify({ instruction, parts, move, grade, step, history, onto, photo: await photoForAI(photo) }),
       signal: controller.signal,
     });
   } catch {

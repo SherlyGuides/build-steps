@@ -61,6 +61,7 @@ export async function importBuild(file) {
       instruction: String(step.instruction ?? ""),
       move: step.move === "flip" || step.move === "turn" ? step.move : null,
       parts: Array.isArray(step.parts) ? step.parts.map(p => ({ id: String(p.id), qty: Math.max(1, Number(p.qty) || 1) })) : [],
+      onto: Array.isArray(step.onto) ? step.onto.map(String).slice(0, 2) : [],
       photo,
     });
   }

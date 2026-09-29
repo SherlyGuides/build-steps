@@ -3,7 +3,7 @@
 A phone-first web app for making ThinkPro **build instruction decks** (PowerPoint).
 
 1. **New build**: enter the build name, grade and session.
-2. **📷 Add step**: take the photo of the step (or use **🖼 Add steps from gallery** to pick one or more saved photos; each becomes a step, in the order selected), choose the part(s) it uses from the parts list, and type the instruction exactly as it should read on the slide. Steps that only **flip over** or **turn around** the assembly need no part; the slide shows an arrow instead.
+2. **📷 Add step**: take the photo of the step (or use **🖼 Add steps from gallery** to pick one or more saved photos; each becomes a step, in the order selected), choose the part(s) it uses from the parts list, and type the instruction exactly as it should read on the slide. Steps that only **flip over** or **turn around** the assembly need no part; their slide shows the previous step's photo (before) on the left and this step's photo (after) on the right.
 3. **Materials required** (the BOM) fills itself in from the parts chosen in the steps, with quantities added up. **Review & edit BOM** lets you change a quantity, hide a part or add an extra part that is not in any step. Edits sit on top of the automatic list, so it keeps updating as steps change, and ↺ returns a part to its automatic count.
 4. **Generate deck** makes `<Build>_G<grade>_S<session>_v<n>.pptx`:
    - slide 1: cover with the build name, grade and session
@@ -23,7 +23,7 @@ After a photo is taken (or with **✏️ Edit photo** on any step) a full editor
 
 ## AI suggestions for instructions
 
-**✨ Improve with AI** under a step's instruction (or **✨ Write with AI** when it is empty) offers three rewrites in the house style: Corrected, Clearer and Shorter. Tap one to use it; Undo puts the old text back. It needs the internet. The suggestions come from Google Gemini through a small proxy on the Lesson Foundry server that keeps the API key private (`server/`). Only the instruction text, part names, grade and step number are sent, never photos.
+**✨ Improve with AI** under a step's instruction (or **✨ Write with AI** when it is empty) offers three instructions in the house style (Corrected, Clearer, Shorter) that name both the part being added and the part it goes onto, with the stud position when the photo shows it. Pick the part it attaches to under **Goes onto** (optional) for the most reliable result. Tap a suggestion to use it; Undo puts the old text back. It needs the internet. The suggestions come from Google Gemini (free tier) through a small proxy on the Lesson Foundry server that keeps the API key private (`server/`). Sent: the instruction, the step's parts, the parts of the last 8 steps, the "Goes onto" choice, the grade, the step number and the step photo (about 700 px).
 
 ## Licence
 

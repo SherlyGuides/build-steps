@@ -25,6 +25,9 @@ export const LAYOUT = {
   instruction: { x: 60, y: 100, w: 1160, h: 64, size: 20 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
+  // Flip / turn steps: before (previous step's photo) and after, the same size.
+  moveBefore: { x: 50, y: 175, w: 570, h: 465 },
+  moveAfter: { x: 650, y: 175, w: 570, h: 465 },
   partName: { h: 34, size: 12 },
   quantity: { size: 18 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
@@ -103,18 +106,12 @@ export function bomCell(i, part) {
 
 const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
 
-// Steps where no part is added: the assembly is flipped or turned. The left side of the
-// slide shows an arrow icon instead of part pictures.
+// Steps where no part is added: the assembly is flipped or turned. Their slide shows two photos
+// side by side: the previous step's photo (before) on the left and this step's (after) on the right.
 export const MOVES = {
-  flip: { label: "Flip over", icon: "slides/flip.svg", instruction: "Flip the assembly upside down" },
-  turn: { label: "Turn around", icon: "slides/turn.svg", instruction: "Turn the assembly around" },
+  flip: { label: "Flip over", instruction: "Flip the assembly upside down" },
+  turn: { label: "Turn around", instruction: "Turn the assembly around" },
 };
-export const MOVE_ICON_SCALE = 0.75;
-
-export function moveIconBox(area = LAYOUT.parts) {
-  const side = Math.min(area.w, area.h) * MOVE_ICON_SCALE;
-  return { x: area.x + (area.w - side) / 2, y: area.y + (area.h - side) / 2, w: side, h: side };
-}
 
 export function stepHeading(index) {
   return `Step ${index + 1}`;
@@ -202,19 +199,6 @@ async function partPicture(part) {
   return partCache.get(part.file);
 }
 
-// PowerPoint needs a bitmap, so the SVG icon is drawn onto a canvas once.
-const iconCache = new Map();
-async function moveIcon(move) {
-  if (!iconCache.has(move)) {
-    const img = new Image();
-    img.src = MOVES[move].icon;
-    await img.decode();
-    const canvas = Object.assign(document.createElement("canvas"), { width: 800, height: 800 });
-    canvas.getContext("2d").drawImage(img, 0, 0, 800, 800);
-    iconCache.set(move, canvas.toDataURL("image/png"));
-  }
-  return iconCache.get(move);
-}
 
 async function background(name) {
   return pptxData(await blobToDataUrl(await (await fetch(`slides/${name}.jpg`)).blob()));
@@ -271,9 +255,14 @@ export async function buildDeck(build, onProgress = () => {}) {
       text(slide, [{ text: step.instruction.trim(), options: { highlight: HIGHLIGHT_COLOR } }], LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, 14), color: TEXT_COLOR, valign: "top" });
     }
 
-    if (MOVES[step.move]) {
-      const b = moveIconBox();
-      slide.addImage({ data: pptxData(await moveIcon(step.move)), x: IN(b.x), y: IN(b.y), w: IN(b.w), h: IN(b.h), altText: MOVES[step.move].label });
+    const move = MOVES[step.move];
+    const before = move ? build.steps[index - 1]?.photo : null;
+    if (before) {
+      const blob = await getImage(before.id);
+      if (blob) {
+        const box = fit(LAYOUT.moveBefore, before.w, before.h);
+        slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: `Before: ${stepHeading(index - 1)}` });
+      }
     }
     const parts = MOVES[step.move] ? [] : step.parts.map(p => ({ ...p, part: library.get(p.id) })).filter(p => p.part);
     const placed = partLayout(parts, build.showPartNames);
@@ -288,7 +277,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (step.photo) {
       const blob = await getImage(step.photo.id);
       if (blob) {
-        const box = fit(LAYOUT.photo, step.photo.w, step.photo.h);
+        const box = fit(move ? LAYOUT.moveAfter : LAYOUT.photo, step.photo.w, step.photo.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
       }
     }
