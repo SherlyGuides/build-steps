@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="800" height="800">
+  <g fill="none" stroke="#C43A12" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M110 150 A 110 110 0 0 1 300 130"/>
+    <path d="M290 250 A 110 110 0 0 1 100 270"/>
+  </g>
+  <path d="M322 92 L318 170 L250 138 Z" fill="#C43A12"/>
+  <path d="M78 308 L82 230 L150 262 Z" fill="#C43A12"/>
+  <rect x="150" y="165" width="100" height="70" rx="8" fill="#EF7D37"/>
+  <rect x="162" y="148" width="26" height="17" rx="4" fill="#EF7D37"/>
+  <rect x="212" y="148" width="26" height="17" rx="4" fill="#EF7D37"/>
+  <text x="200" y="385" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="700" fill="#C43A12" text-anchor="middle">FLIP OVER</text>
+</svg>

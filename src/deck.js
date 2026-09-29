@@ -1,0 +1,296 @@
+import PptxGenJS from "pptxgenjs";
+import { getImage } from "./db.js";
+import { loadParts } from "./library.js";
+
+// =============================================================================
+// SLIDE LAYOUT — same 1280 × 720 design-pixel system and colours as Lesson Foundry (app.py).
+// Deck: 1 cover (build name, grade, session) → 2 Materials Required (3 × 3 grid; a 10th part
+// continues on another slide) → the build steps from slide 3 → Thank You.
+// A step slide: "Step N" on the red bar, the instruction highlighted in yellow below it,
+// the part(s) used on the left and the photo of the step on the right.
+// =============================================================================
+
+const FONT_NAME = "Myriad";
+const RUST_COLOR = "C43A12";
+const TEXT_COLOR = "111111";
+const SUBTITLE_COLOR = "4B4B4B";
+const HIGHLIGHT_COLOR = "FFFF00";
+
+export const LAYOUT = {
+  cover: {
+    title: { x: 101, y: 270, w: 530, h: 100, size: 36 },
+    subtitle: { x: 117, y: 340, w: 520, h: 200, size: 28 },
+  },
+  heading: { x: 40, y: 20, w: 1060, h: 52, size: 32 },
+  instruction: { x: 60, y: 100, w: 1160, h: 64, size: 20 },
+  parts: { x: 50, y: 190, w: 450, h: 440 },
+  photo: { x: 540, y: 170, w: 680, h: 470 },
+  partName: { h: 34, size: 12 },
+  quantity: { size: 18 },
+  slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
+  thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
+  bom: {
+    heading: "Materials Required",
+    area: { x: 70, y: 100, w: 1140, h: 540 },
+    cols: 3, rows: 3, gap: 16, pad: 12,
+    picture: 150,
+    name: { size: 16 },
+    quantity: { size: 24 },
+  },
+};
+
+// =============================================================================
+// BILL OF MATERIALS
+// Worked out from the steps: every part picked in a step, quantities added up, in the order
+// the parts are first used. build.bom holds only the user's changes on top of that:
+//   overrides: { [partId]: { qty?: number, hidden?: true } }   extras: [{ id, qty }]
+// so the list keeps updating by itself as steps change.
+// =============================================================================
+
+export function bomEdits(build) {
+  return { overrides: build.bom?.overrides ?? {}, extras: build.bom?.extras ?? [] };
+}
+
+/** Every BOM row, including hidden ones, for the review screen. */
+export function materials(build, library) {
+  const { overrides, extras } = bomEdits(build);
+  const auto = new Map();
+  for (const step of build.steps) {
+    if (MOVES[step.move]) continue;
+    for (const p of step.parts) auto.set(p.id, (auto.get(p.id) ?? 0) + p.qty);
+  }
+  const rows = [...auto].map(([id, qty]) => ({ id, auto: qty, extra: false }));
+  for (const e of extras) if (!auto.has(e.id)) rows.push({ id: e.id, auto: 0, extra: true, extraQty: e.qty });
+  return rows.map(row => {
+    const edit = overrides[row.id] ?? {};
+    const base = row.extra ? row.extraQty : row.auto;
+    const qty = edit.qty ?? base;
+    return { id: row.id, part: library.get(row.id), auto: row.auto, qty, edited: !row.extra && edit.qty != null && edit.qty !== row.auto, hidden: !!edit.hidden, extra: row.extra };
+  }).filter(row => row.part);
+}
+
+/** The rows printed on the Materials Required slides. */
+export function bomRows(build, library) {
+  return materials(build, library).filter(row => !row.hidden && row.qty > 0);
+}
+
+export function bomPages(rows) {
+  const per = LAYOUT.bom.cols * LAYOUT.bom.rows;
+  const pages = [];
+  for (let i = 0; i < rows.length; i += per) pages.push(rows.slice(i, i + per));
+  return pages;
+}
+
+export function bomHeading(page, pageCount) {
+  return pageCount > 1 ? `${LAYOUT.bom.heading} (${page + 1}/${pageCount})` : LAYOUT.bom.heading;
+}
+
+/** Card, picture, name and quantity boxes for the i-th part on a Materials slide. */
+export function bomCell(i, part) {
+  const b = LAYOUT.bom;
+  const w = (b.area.w - b.gap * (b.cols - 1)) / b.cols, h = (b.area.h - b.gap * (b.rows - 1)) / b.rows;
+  const card = { x: b.area.x + (i % b.cols) * (w + b.gap), y: b.area.y + Math.floor(i / b.cols) * (h + b.gap), w, h };
+  const picture = fit({ x: card.x + b.pad, y: card.y + b.pad, w: b.picture, h: h - 2 * b.pad }, part.w || 1, part.h || 1);
+  const textX = card.x + b.pad * 2 + b.picture, textW = card.x + w - b.pad - textX;
+  return {
+    card, picture,
+    name: { x: textX, y: card.y + b.pad + 6, w: textW, h: h - 2 * b.pad - 56 },
+    qty: { x: textX, y: card.y + h - b.pad - 46, w: textW, h: 40 },
+  };
+}
+
+const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
+
+// Steps where no part is added: the assembly is flipped or turned. The left side of the
+// slide shows an arrow icon instead of part pictures.
+export const MOVES = {
+  flip: { label: "Flip over", icon: "slides/flip.svg", instruction: "Flip the assembly upside down" },
+  turn: { label: "Turn around", icon: "slides/turn.svg", instruction: "Turn the assembly around" },
+};
+export const MOVE_ICON_SCALE = 0.75;
+
+export function moveIconBox(area = LAYOUT.parts) {
+  const side = Math.min(area.w, area.h) * MOVE_ICON_SCALE;
+  return { x: area.x + (area.w - side) / 2, y: area.y + (area.h - side) / 2, w: side, h: side };
+}
+
+export function stepHeading(index) {
+  return `Step ${index + 1}`;
+}
+
+export function deckFileName(build) {
+  const name = build.name.replace(/[^A-Za-z0-9 _-]+/g, "-").trim().slice(0, 80) || "Build";
+  return `${name}_G${build.grade}_S${build.session}_v${build.deckVersion}.pptx`;
+}
+
+// PowerPoint only shrinks text to fit once someone edits it, so long text is given a smaller
+// size here. Estimate: an average character is about half the font size wide.
+export function fittedSize(text, area, size, minimum = 10) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  for (let pt = size; pt > minimum; pt -= 1) {
+    const px = pt * 96 / 72, perLine = Math.max(1, Math.floor(area.w / (px * 0.52)));
+    let lines = 1, used = 0;
+    for (const word of words) {
+      const add = (used ? 1 : 0) + word.length;
+      if (used + add > perLine && used) { lines += 1; used = word.length; } else used += add;
+    }
+    if (lines * px * 1.2 <= area.h) return pt;
+  }
+  return minimum;
+}
+
+// Largest box with the picture's proportions that fits inside the area, centred.
+export function fit(area, w, h) {
+  const scale = Math.min(area.w / w, area.h / h);
+  const fw = w * scale, fh = h * scale;
+  return { x: area.x + (area.w - fw) / 2, y: area.y + (area.h - fh) / 2, w: fw, h: fh };
+}
+
+// Columns and rows for the parts on the left: 1 part fills the area, more share it.
+export function partsGrid(count) {
+  const cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+  return { cols, rows: Math.ceil(count / cols) };
+}
+
+export function partCells(count, area = LAYOUT.parts) {
+  const { cols, rows } = partsGrid(count);
+  const w = area.w / cols, h = area.h / rows, pad = count > 1 ? 10 : 0;
+  return Array.from({ length: count }, (_, i) => ({
+    x: area.x + (i % cols) * w + pad, y: area.y + Math.floor(i / cols) * h + pad, w: w - 2 * pad, h: h - 2 * pad,
+  }));
+}
+
+const QTY_H = 30;
+
+/**
+ * Where each part's picture, quantity ("x2") and optional name go. The labels sit directly under
+ * the picture, so they stay with it however wide or tall the picture is.
+ * parts: [{ part: { w, h, name }, qty }]
+ */
+export function partLayout(parts, showNames) {
+  const cells = partCells(parts.length);
+  return parts.map(({ part, qty }, i) => {
+    const cell = cells[i];
+    const below = (qty > 1 ? QTY_H : 0) + (showNames ? LAYOUT.partName.h : 0);
+    const image = fit({ ...cell, h: cell.h - below }, part.w || 1, part.h || 1);
+    let y = image.y + image.h;
+    const qtyBox = qty > 1 ? { x: cell.x, y, w: cell.w, h: QTY_H } : null;
+    if (qtyBox) y += QTY_H;
+    const nameBox = showNames ? { x: cell.x, y, w: cell.w, h: LAYOUT.partName.h } : null;
+    return { image, qtyBox, nameBox };
+  });
+}
+
+const blobToDataUrl = blob => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(blob);
+});
+
+// pptxgenjs wants "image/png;base64,..." without the leading "data:".
+const pptxData = dataUrl => dataUrl.replace(/^data:/, "");
+
+const partCache = new Map();
+async function partPicture(part) {
+  if (!partCache.has(part.file)) {
+    const dataUrl = await blobToDataUrl(await (await fetch(part.file)).blob());
+    partCache.set(part.file, { dataUrl });
+  }
+  return partCache.get(part.file);
+}
+
+// PowerPoint needs a bitmap, so the SVG icon is drawn onto a canvas once.
+const iconCache = new Map();
+async function moveIcon(move) {
+  if (!iconCache.has(move)) {
+    const img = new Image();
+    img.src = MOVES[move].icon;
+    await img.decode();
+    const canvas = Object.assign(document.createElement("canvas"), { width: 800, height: 800 });
+    canvas.getContext("2d").drawImage(img, 0, 0, 800, 800);
+    iconCache.set(move, canvas.toDataURL("image/png"));
+  }
+  return iconCache.get(move);
+}
+
+async function background(name) {
+  return pptxData(await blobToDataUrl(await (await fetch(`slides/${name}.jpg`)).blob()));
+}
+
+function text(slide, value, box, options) {
+  slide.addText(value, {
+    x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), fontFace: FONT_NAME, margin: 0, fit: "shrink", ...options,
+  });
+}
+
+/** Build the .pptx for a build. Returns a Blob. onProgress(done, total) is called per step. */
+export async function buildDeck(build, onProgress = () => {}) {
+  const library = await loadParts(build.kit);
+  const pptx = new PptxGenJS();
+  pptx.layout = "LAYOUT_WIDE";
+  pptx.title = build.name;
+  pptx.company = "ThinkPro Academy";
+
+  const cover = pptx.addSlide();
+  cover.background = { data: await background("bg1") };
+  text(cover, build.name, LAYOUT.cover.title, { fontSize: LAYOUT.cover.title.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+  text(cover, `Grade ${build.grade} · Session ${build.session}`, LAYOUT.cover.subtitle, { fontSize: LAYOUT.cover.subtitle.size, color: SUBTITLE_COLOR, align: "center", valign: "middle" });
+
+  const stepBackground = await background("bg2");
+  const slideNumber = { x: IN(LAYOUT.slideNumber.x), y: IN(LAYOUT.slideNumber.y), w: IN(LAYOUT.slideNumber.w), h: IN(LAYOUT.slideNumber.h), fontFace: FONT_NAME, fontSize: LAYOUT.slideNumber.size, color: TEXT_COLOR, align: "right" };
+
+  const pages = bomPages(bomRows(build, library));
+  for (const [page, rows] of pages.entries()) {
+    const slide = pptx.addSlide();
+    slide.background = { data: stepBackground };
+    slide.slideNumber = slideNumber;
+    text(slide, bomHeading(page, pages.length), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
+    for (const [i, { part, qty }] of rows.entries()) {
+      const cell = bomCell(i, part);
+      const picture = await partPicture(part);
+      slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: 0.12, fill: { color: "FFFFFF" }, line: { color: "E6DDCF", width: 1 } });
+      slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
+      text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, LAYOUT.bom.name.size), color: TEXT_COLOR, valign: "top" });
+      text(slide, `x${qty}`, cell.qty, { fontSize: LAYOUT.bom.quantity.size, color: RUST_COLOR, bold: true, valign: "bottom" });
+    }
+  }
+  for (const [index, step] of build.steps.entries()) {
+    const slide = pptx.addSlide();
+    slide.background = { data: stepBackground };
+    slide.slideNumber = slideNumber;
+    text(slide, stepHeading(index), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
+    if (step.instruction.trim()) {
+      text(slide, [{ text: step.instruction.trim(), options: { highlight: HIGHLIGHT_COLOR } }], LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, 14), color: TEXT_COLOR, valign: "top" });
+    }
+
+    if (MOVES[step.move]) {
+      const b = moveIconBox();
+      slide.addImage({ data: pptxData(await moveIcon(step.move)), x: IN(b.x), y: IN(b.y), w: IN(b.w), h: IN(b.h), altText: MOVES[step.move].label });
+    }
+    const parts = MOVES[step.move] ? [] : step.parts.map(p => ({ ...p, part: library.get(p.id) })).filter(p => p.part);
+    const placed = partLayout(parts, build.showPartNames);
+    for (const [i, { part, qty }] of parts.entries()) {
+      const { image, qtyBox, nameBox } = placed[i];
+      const picture = await partPicture(part);
+      slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
+      if (qtyBox) text(slide, `x${qty}`, qtyBox, { fontSize: LAYOUT.quantity.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, LAYOUT.partName.size, 8), color: SUBTITLE_COLOR, align: "center", valign: "top" });
+    }
+
+    if (step.photo) {
+      const blob = await getImage(step.photo.id);
+      if (blob) {
+        const box = fit(LAYOUT.photo, step.photo.w, step.photo.h);
+        slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
+      }
+    }
+    onProgress(index + 1, build.steps.length);
+  }
+
+  const closing = pptx.addSlide();
+  closing.background = { data: await background("bg3") };
+  const t = LAYOUT.thankYou;
+  text(closing, t.text, t, { fontSize: t.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+  return pptx.write({ outputType: "blob", compression: true });
+}

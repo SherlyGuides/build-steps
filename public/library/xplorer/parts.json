@@ -1,0 +1,455 @@
+{
+ "kit": "Xplorer Mech",
+ "source": "glbadmin.thinkpro.academy /content/bom/Parts_Library/Xplorer_Mech",
+ "fetched": "2026-09-29",
+ "parts": [
+  {
+   "id": "Xplorer_Mech/Baseplate 16 x 32.png",
+   "name": "Baseplate 16 x 32",
+   "kitName": "Baseplate 16 x 32",
+   "file": "library/xplorer/Baseplate_16_x_32.png",
+   "w": 600,
+   "h": 391
+  },
+  {
+   "id": "Xplorer_Mech/Bracket 1 x 2 - 1 x 2 Inverted.png",
+   "name": "Bracket 1 x 2 - 1 x 2 Inverted",
+   "kitName": "Bracket 1 x 2 - 1 x 2 Inverted",
+   "file": "library/xplorer/Bracket_1_x_2_-_1_x_2_Inverted.png",
+   "w": 600,
+   "h": 526
+  },
+  {
+   "id": "Xplorer_Mech/Bracket 2 x 2 - 2 x 2 with 2 Holes.png",
+   "name": "Bracket 2 x 2 - 2 x 2 with 2 Holes",
+   "kitName": "Bracket 2 x 2 - 2 x 2 with 2 Holes",
+   "file": "library/xplorer/Bracket_2_x_2_-_2_x_2_with_2_Holes.png",
+   "w": 600,
+   "h": 576
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 16.png",
+   "name": "Brick 1 x 16",
+   "kitName": "Brick 1 x 16",
+   "file": "library/xplorer/Brick_1_x_16.png",
+   "w": 600,
+   "h": 344
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 2.png",
+   "name": "Brick 1 x 2",
+   "kitName": "Brick 1 x 2",
+   "file": "library/xplorer/Brick_1_x_2.png",
+   "w": 600,
+   "h": 585
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 2 with Axle Hole.png",
+   "name": "Brick 1 x 2 with Axle Hole",
+   "kitName": "Brick 1 x 2 with Axle Hole",
+   "file": "library/xplorer/Brick_1_x_2_with_Axle_Hole.png",
+   "w": 590,
+   "h": 600
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 2 with Hole.png",
+   "name": "Brick 1 x 2 with Hole",
+   "kitName": "Brick 1 x 2 with Hole",
+   "file": "library/xplorer/Brick_1_x_2_with_Hole.png",
+   "w": 600,
+   "h": 582
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 3.png",
+   "name": "Brick 1 x 3",
+   "kitName": "Brick 1 x 3",
+   "file": "library/xplorer/Brick_1_x_3.png",
+   "w": 600,
+   "h": 540
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 4.png",
+   "name": "Brick 1 x 4",
+   "kitName": "Brick 1 x 4",
+   "file": "library/xplorer/Brick_1_x_4.png",
+   "w": 600,
+   "h": 486
+  },
+  {
+   "id": "Xplorer_Mech/Brick 1 x 8.png",
+   "name": "Brick 1 x 8",
+   "kitName": "Brick 1 x 8",
+   "file": "library/xplorer/Brick_1_x_8.png",
+   "w": 600,
+   "h": 360
+  },
+  {
+   "id": "Xplorer_Mech/Brick 2 x 10.png",
+   "name": "Brick 2 x 10",
+   "kitName": "Brick 2 x 10",
+   "file": "library/xplorer/Brick_2_x_10.png",
+   "w": 600,
+   "h": 374
+  },
+  {
+   "id": "Xplorer_Mech/Brick 2 x 2.png",
+   "name": "Brick 2 x 2",
+   "kitName": "Brick 2 x 2",
+   "file": "library/xplorer/Brick_2_x_2.png",
+   "w": 600,
+   "h": 593
+  },
+  {
+   "id": "Xplorer_Mech/Brick 2 x 3.png",
+   "name": "Brick 2 x 3",
+   "kitName": "Brick 2 x 3",
+   "file": "library/xplorer/Brick_2_x_3.png",
+   "w": 600,
+   "h": 519
+  },
+  {
+   "id": "Xplorer_Mech/Brick 2 x 4.png",
+   "name": "Brick 2 x 4",
+   "kitName": "Brick 2 x 4",
+   "file": "library/xplorer/Brick_2_x_4.png",
+   "w": 600,
+   "h": 452
+  },
+  {
+   "id": "Xplorer_Mech/Brick 2 x 6.png",
+   "name": "Brick 2 x 6",
+   "kitName": "Brick 2 x 6",
+   "file": "library/xplorer/Brick_2_x_6.png",
+   "w": 600,
+   "h": 417
+  },
+  {
+   "id": "Xplorer_Mech/Brick and Axle Separator.png",
+   "name": "Brick and Axle Separator",
+   "kitName": "Brick and Axle Separator",
+   "file": "library/xplorer/Brick_and_Axle_Separator.png",
+   "w": 600,
+   "h": 414
+  },
+  {
+   "id": "Xplorer_Mech/DC Motor JM-004 with 2 wires.png",
+   "name": "DC Motor JM-004 with 2 wires",
+   "kitName": "DC Motor JM-004 with 2 wires",
+   "file": "library/xplorer/DC_Motor_JM-004_with_2_wires.png",
+   "w": 600,
+   "h": 459
+  },
+  {
+   "id": "Xplorer_Mech/Medium tyre.png",
+   "name": "Medium tyre",
+   "kitName": "Medium tyre",
+   "file": "library/xplorer/Medium_tyre.png",
+   "w": 600,
+   "h": 599
+  },
+  {
+   "id": "Xplorer_Mech/Medium wheel.png",
+   "name": "Medium wheel",
+   "kitName": "Medium wheel",
+   "file": "library/xplorer/Medium_wheel.png",
+   "w": 594,
+   "h": 600
+  },
+  {
+   "id": "Xplorer_Mech/Plate 1 x 12.png",
+   "name": "Plate 1 x 12",
+   "kitName": "Plate 1 x 12",
+   "file": "library/xplorer/Plate_1_x_12.png",
+   "w": 600,
+   "h": 344
+  },
+  {
+   "id": "Xplorer_Mech/Plate 1 x 2.png",
+   "name": "Plate 1 x 2",
+   "kitName": "Plate 1 x 2",
+   "file": "library/xplorer/Plate_1_x_2.png",
+   "w": 600,
+   "h": 473
+  },
+  {
+   "id": "Xplorer_Mech/Plate 1 x 3.png",
+   "name": "Plate 1 x 3",
+   "kitName": "Plate 1 x 3",
+   "file": "library/xplorer/Plate_1_x_3.png",
+   "w": 600,
+   "h": 398
+  },
+  {
+   "id": "Xplorer_Mech/Plate 1 x 4.png",
+   "name": "Plate 1 x 4",
+   "kitName": "Plate 1 x 4",
+   "file": "library/xplorer/Plate_1_x_4.png",
+   "w": 600,
+   "h": 359
+  },
+  {
+   "id": "Xplorer_Mech/Plate 1 x 8.png",
+   "name": "Plate 1 x 8",
+   "kitName": "Plate 1 x 8",
+   "file": "library/xplorer/Plate_1_x_8.png",
+   "w": 600,
+   "h": 319
+  },
+  {
+   "id": "Xplorer_Mech/Plate 2 x 16.png",
+   "name": "Plate 2 x 16",
+   "kitName": "Plate 2 x 16",
+   "file": "library/xplorer/Plate_2_x_16.png",
+   "w": 600,
+   "h": 329
+  },
+  {
+   "id": "Xplorer_Mech/Plate 2 x 2.png",
+   "name": "Plate 2 x 2",
+   "kitName": "Plate 2 x 2",
+   "file": "library/xplorer/Plate_2_x_2.png",
+   "w": 600,
+   "h": 481
+  },
+  {
+   "id": "Xplorer_Mech/Plate 2 x 3.png",
+   "name": "Plate 2 x 3",
+   "kitName": "Plate 2 x 3",
+   "file": "library/xplorer/Plate_2_x_3.png",
+   "w": 600,
+   "h": 432
+  },
+  {
+   "id": "Xplorer_Mech/Plate 2 x 4.png",
+   "name": "Plate 2 x 4",
+   "kitName": "Plate 2 x 4",
+   "file": "library/xplorer/Plate_2_x_4.png",
+   "w": 600,
+   "h": 384
+  },
+  {
+   "id": "Xplorer_Mech/Plate 2 x 8.png",
+   "name": "Plate 2 x 8",
+   "kitName": "Plate 2 x 8",
+   "file": "library/xplorer/Plate_2_x_8.png",
+   "w": 600,
+   "h": 353
+  },
+  {
+   "id": "Xplorer_Mech/Plate 4 x 12.png",
+   "name": "Plate 4 x 12",
+   "kitName": "Plate 4 x 12",
+   "file": "library/xplorer/Plate_4_x_12.png",
+   "w": 600,
+   "h": 343
+  },
+  {
+   "id": "Xplorer_Mech/Plate 4 x 8.png",
+   "name": "Plate 4 x 8",
+   "kitName": "Plate 4 x 8",
+   "file": "library/xplorer/Plate_4_x_8.png",
+   "w": 600,
+   "h": 382
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 1 x 2 with 2 U Clips.png",
+   "name": "Plate, Modified 1 x 2 with 2 U Clips",
+   "kitName": "Plate, Modified 1 x 2 with 2 U Clips",
+   "file": "library/xplorer/Plate_Modified_1_x_2_with_2_U_Clips.png",
+   "w": 600,
+   "h": 527
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 1 x 2 with Bar Handle on Side - Closed Ends.png",
+   "name": "Plate, Modified 1 x 2 with Bar Handle on Side - Closed Ends",
+   "kitName": "Plate, Modified 1 x 2 with Bar Handle on Side - Closed Ends",
+   "file": "library/xplorer/Plate_Modified_1_x_2_with_Bar_Handle_on_Side_-_Closed_Ends.png",
+   "w": 600,
+   "h": 504
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 1 x 2 with Small Tow Ball Socket on End.png",
+   "name": "Plate, Modified 1 x 2 with Small Tow Ball Socket on End",
+   "kitName": "Plate, Modified 1 x 2 with Small Tow Ball Socket on End",
+   "file": "library/xplorer/Plate_Modified_1_x_2_with_Small_Tow_Ball_Socket_on_End.png",
+   "w": 600,
+   "h": 402
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 1 x 2 with Tow Ball and Small Tow Ball Socket on Ends.png",
+   "name": "Plate, Modified 1 x 2 with Tow Ball and Small Tow Ball Socket on Ends",
+   "kitName": "Plate, Modified 1 x 2 with Tow Ball and Small Tow Ball Socket on Ends",
+   "file": "library/xplorer/Plate_Modified_1_x_2_with_Tow_Ball_and_Small_Tow_Ball_Socket_on_Ends.png",
+   "w": 600,
+   "h": 362
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 1 x 2 with Tow Ball on End.png",
+   "name": "Plate, Modified 1 x 2 with Tow Ball on End",
+   "kitName": "Plate, Modified 1 x 2 with Tow Ball on End",
+   "file": "library/xplorer/Plate_Modified_1_x_2_with_Tow_Ball_on_End.png",
+   "w": 600,
+   "h": 417
+  },
+  {
+   "id": "Xplorer_Mech/Plate, Modified 2 x 2 with Wheel Holder.png",
+   "name": "Plate, Modified 2 x 2 with Wheel Holder",
+   "kitName": "Plate, Modified 2 x 2 with Wheel Holder",
+   "file": "library/xplorer/Plate_Modified_2_x_2_with_Wheel_Holder.png",
+   "w": 600,
+   "h": 489
+  },
+  {
+   "id": "Xplorer_Mech/Propeller 3 Blade 5 Diameter.png",
+   "name": "Propeller 3 Blade 5 Diameter",
+   "kitName": "Propeller 3 Blade 5 Diameter",
+   "file": "library/xplorer/Propeller_3_Blade_5_Diameter.png",
+   "w": 600,
+   "h": 528
+  },
+  {
+   "id": "Xplorer_Mech/Small plastic wheel.png",
+   "name": "Small plastic wheel",
+   "kitName": "Small plastic wheel",
+   "file": "library/xplorer/Small_plastic_wheel.png",
+   "w": 599,
+   "h": 600
+  },
+  {
+   "id": "Xplorer_Mech/Technic Brick 1 X 16 with Holes.png",
+   "name": "Technic Brick 1 X 16 with Holes",
+   "kitName": "Technic Brick 1 X 16 with Holes",
+   "file": "library/xplorer/Technic_Brick_1_X_16_with_Holes.png",
+   "w": 600,
+   "h": 342
+  },
+  {
+   "id": "Xplorer_Mech/Technic Brick 4 X 6 Open Center.png",
+   "name": "Technic Brick 4 X 6 Open Center",
+   "kitName": "Technic Brick 4 X 6 Open Center",
+   "file": "library/xplorer/Technic_Brick_4_X_6_Open_Center.png",
+   "w": 600,
+   "h": 475
+  },
+  {
+   "id": "Xplorer_Mech/Technic Brick 6 X 8 Open Center.png",
+   "name": "Technic Brick 6 X 8 Open Center",
+   "kitName": "Technic Brick 6 X 8 Open Center",
+   "file": "library/xplorer/Technic_Brick_6_X_8_Open_Center.png",
+   "w": 600,
+   "h": 443
+  },
+  {
+   "id": "Xplorer_Mech/Technic Bush.png",
+   "name": "Technic Bush",
+   "kitName": "Technic Bush",
+   "file": "library/xplorer/Technic_Bush.png",
+   "w": 600,
+   "h": 457
+  },
+  {
+   "id": "Xplorer_Mech/Technic Bush 1-2 Smooth.png",
+   "name": "Technic Bush 1-2 Smooth",
+   "kitName": "Technic Bush 1-2 Smooth",
+   "file": "library/xplorer/Technic_Bush_1-2_Smooth.png",
+   "w": 597,
+   "h": 600
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Brick 1 x 2 with Holes.png",
+   "name": "Technic, Brick 1 x 2 with Holes",
+   "kitName": "Technic, Brick 1 x 2 with Holes",
+   "file": "library/xplorer/Technic_Brick_1_x_2_with_Holes.png",
+   "w": 600,
+   "h": 584
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Brick 1 x 6 with Holes.png",
+   "name": "Technic, Brick 1 x 6 with Holes",
+   "kitName": "Technic, Brick 1 x 6 with Holes",
+   "file": "library/xplorer/Technic_Brick_1_x_6_with_Holes.png",
+   "w": 600,
+   "h": 362
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Brick 4 x 4 Open Center.png",
+   "name": "Technic, Brick 4 x 4 Open Center",
+   "kitName": "Technic, Brick 4 x 4 Open Center",
+   "file": "library/xplorer/Technic_Brick_4_x_4_Open_Center.png",
+   "w": 600,
+   "h": 510
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Gear 12 Tooth Double Bevel.png",
+   "name": "Technic, Gear 12 Tooth Double Bevel",
+   "kitName": "Technic, Gear 12 Tooth Double Bevel",
+   "file": "library/xplorer/Technic_Gear_12_Tooth_Double_Bevel.png",
+   "w": 600,
+   "h": 579
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Gear 20 Tooth Double Bevel.png",
+   "name": "Technic, Gear 20 Tooth Double Bevel",
+   "kitName": "Technic, Gear 20 Tooth Double Bevel",
+   "file": "library/xplorer/Technic_Gear_20_Tooth_Double_Bevel.png",
+   "w": 600,
+   "h": 572
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Gear 36 Tooth Double Bevel.png",
+   "name": "Technic, Gear 36 Tooth Double Bevel",
+   "kitName": "Technic, Gear 36 Tooth Double Bevel",
+   "file": "library/xplorer/Technic_Gear_36_Tooth_Double_Bevel.png",
+   "w": 600,
+   "h": 539
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Pin with Tow Ball.png",
+   "name": "Technic, Pin with Tow Ball",
+   "kitName": "Technic, Pin with Tow Ball",
+   "file": "library/xplorer/Technic_Pin_with_Tow_Ball.png",
+   "w": 600,
+   "h": 383
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Plate 2 x 4 with 3 Holes.png",
+   "name": "Technic, Plate 2 x 4 with 3 Holes",
+   "kitName": "Technic, Plate 2 x 4 with 3 Holes",
+   "file": "library/xplorer/Technic_Plate_2_x_4_with_3_Holes.png",
+   "w": 600,
+   "h": 430
+  },
+  {
+   "id": "Xplorer_Mech/Technic, Plate 2 x 8 with 7 Holes.png",
+   "name": "Technic, Plate 2 x 8 with 7 Holes",
+   "kitName": "Technic, Plate 2 x 8 with 7 Holes",
+   "file": "library/xplorer/Technic_Plate_2_x_8_with_7_Holes.png",
+   "w": 600,
+   "h": 344
+  },
+  {
+   "id": "Xplorer_Mech/Tire 30.4 x 14 VR.png",
+   "name": "Tire 30.4 x 14 VR",
+   "kitName": "Tire 30.4 x 14 VR",
+   "file": "library/xplorer/Tire_30.4_x_14_VR.png",
+   "w": 600,
+   "h": 590
+  },
+  {
+   "id": "Xplorer_Mech/Vehicle, Steering Wheel Small, 2 Studs Diameter.png",
+   "name": "Vehicle, Steering Wheel Small, 2 Studs Diameter",
+   "kitName": "Vehicle, Steering Wheel Small, 2 Studs Diameter",
+   "file": "library/xplorer/Vehicle_Steering_Wheel_Small_2_Studs_Diameter.png",
+   "w": 600,
+   "h": 496
+  },
+  {
+   "id": "Xplorer_Mech/Wheel 30.4 x 14 VR.png",
+   "name": "Wheel 30.4 x 14 VR",
+   "kitName": "Wheel 30.4 x 14 VR",
+   "file": "library/xplorer/Wheel_30.4_x_14_VR.png",
+   "w": 584,
+   "h": 600
+  }
+ ]
+}

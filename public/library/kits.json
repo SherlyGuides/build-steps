@@ -1,0 +1,9 @@
+{
+ "kits": [
+  {
+   "id": "xplorer",
+   "name": "Xplorer (Mech)",
+   "parts": "library/xplorer/parts.json"
+  }
+ ]
+}
