@@ -3,7 +3,7 @@
 A phone-first web app for making ThinkPro **build instruction decks** (PowerPoint).
 
 1. **New build**: enter the build name, grade and session.
-2. **📷 Add step**: take the photo of the step, choose the part(s) it uses from the parts list, and type the instruction exactly as it should read on the slide. Steps that only **flip over** or **turn around** the assembly need no part; the slide shows an arrow instead.
+2. **📷 Add step**: take the photo of the step (or use **🖼 Add steps from gallery** to pick one or more saved photos; each becomes a step, in the order selected), choose the part(s) it uses from the parts list, and type the instruction exactly as it should read on the slide. Steps that only **flip over** or **turn around** the assembly need no part; the slide shows an arrow instead.
 3. **Materials required** (the BOM) fills itself in from the parts chosen in the steps, with quantities added up. **Review & edit BOM** lets you change a quantity, hide a part or add an extra part that is not in any step. Edits sit on top of the automatic list, so it keeps updating as steps change, and ↺ returns a part to its automatic count.
 4. **Generate deck** makes `<Build>_G<grade>_S<session>_v<n>.pptx`:
    - slide 1: cover with the build name, grade and session

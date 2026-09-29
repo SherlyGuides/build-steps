@@ -249,3 +249,6 @@ button, a, .part, .step-open { touch-action: manipulation; user-select: none; -w
 .bom-rows .hidden-row { opacity: .55; }
 .bom-rows .hidden-row img { filter: grayscale(1); }
 .btn.compact { min-height: 38px; flex: none; }
+
+.gallery-add { margin-top: 14px; }
+.hint.center { text-align: center; margin-top: 8px; }

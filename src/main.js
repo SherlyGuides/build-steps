@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, putImage, saveBuild, uid } from "./db.js";
 import { LAYOUT, MOVES, bomCell, fittedSize, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, moveIconBox, partLayout, stepHeading } from "./deck.js";
-import { pickBuildFile, saveAndShare, takePhoto } from "./device.js";
+import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { kitName, loadKits, loadParts } from "./library.js";
 import { buildFileName, exportBuild, importBuild } from "./transfer.js";
 
@@ -191,6 +191,8 @@ async function renderBuild(buildId) {
         </li>`;
       }).join("")}</ol>`
       : `<div class="empty"><h2>Add the first step</h2><p>Photograph the model after the step, choose the part it uses from the ${esc(await kitName(build.kit))} list and type the instruction exactly as it should appear on the slide.</p></div>`}
+      <button class="btn secondary wide gallery-add" id="gallery-add">🖼 Add steps from gallery</button>
+      <p class="hint center">Select one or more photos: each becomes a step, in the order you select them.</p>
     </section>
     <footer class="actions">
       <button class="btn secondary" id="add">📷 Add step</button>
@@ -207,6 +209,7 @@ async function renderBuild(buildId) {
   app.querySelectorAll("[data-up]").forEach(b => b.addEventListener("click", () => move(+b.dataset.up, +b.dataset.up - 1)));
   app.querySelectorAll("[data-down]").forEach(b => b.addEventListener("click", () => move(+b.dataset.down, +b.dataset.down + 1)));
   $("#add").addEventListener("click", () => addStep(build, build.steps.length));
+  $("#gallery-add").addEventListener("click", () => addStepsFromGallery(build));
   $("#generate").addEventListener("click", () => generate(build, incomplete));
   $("#menu").addEventListener("click", () => buildMenu(build));
 }
@@ -228,6 +231,36 @@ async function addStep(build, at) {
   // With a photo, go straight to the part list; Back from there returns to the new step.
   if (shot) { history.pushState(null, "", editor); location.hash = `${editor}/parts`; }
   else location.hash = editor;
+}
+
+// One new step per selected photo, added at the end. Then the first of them opens with the
+// part list; ›› in the step editor moves on to the next.
+async function addStepsFromGallery(build) {
+  const files = await pickGalleryPhotos();
+  if (!files.length) return;
+  const steps = [];
+  try {
+    for (const [i, file] of files.entries()) {
+      busy(true, `Adding photo ${i + 1} of ${files.length}…`);
+      const shot = await preparePhoto(file);
+      const photo = { id: uid(), w: shot.w, h: shot.h };
+      await putImage(photo.id, shot.blob);
+      steps.push({ id: uid(), instruction: "", move: null, parts: [], photo });
+    }
+  } catch (error) {
+    fail(error);
+  } finally {
+    busy(false);
+  }
+  if (!steps.length) return;
+  const fresh = await getBuild(build.id);
+  const first = fresh.steps.length + 1;
+  fresh.steps.push(...steps);
+  await saveBuild(fresh);
+  toast(steps.length === 1 ? `Step ${first} added.` : `Steps ${first}–${first + steps.length - 1} added. Choose each step's parts and instruction.`);
+  const editor = `#/build/${build.id}/step/${steps[0].id}`;
+  history.pushState(null, "", editor);
+  location.hash = `${editor}/parts`;
 }
 
 async function buildMenu(build) {

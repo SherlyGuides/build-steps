@@ -4,14 +4,14 @@
 const MAX_PHOTO_SIDE = 1600;
 
 // The input stays in the page until it is used: iOS Safari ignores clicks on detached inputs.
-function pickFile(accept, capture) {
+function pickFiles(accept, { capture = false, multiple = false } = {}) {
   return new Promise(resolve => {
-    const input = Object.assign(document.createElement("input"), { type: "file", accept, hidden: true });
+    const input = Object.assign(document.createElement("input"), { type: "file", accept, multiple, hidden: true });
     if (capture) input.setAttribute("capture", "environment");
     let done = false;
-    const finish = file => { if (done) return; done = true; input.remove(); resolve(file); };
-    input.addEventListener("change", () => finish(input.files?.[0] ?? null));
-    input.addEventListener("cancel", () => finish(null));
+    const finish = files => { if (done) return; done = true; input.remove(); resolve(files); };
+    input.addEventListener("change", () => finish([...(input.files ?? [])]));
+    input.addEventListener("cancel", () => finish([]));
     document.body.append(input);
     input.click();
   });
@@ -49,12 +49,20 @@ async function shrink(file) {
 
 /** source: "camera" | "gallery". Resolves to { blob, w, h } or null when cancelled. */
 export async function takePhoto(source) {
-  const file = await pickFile("image/*", source === "camera");
+  const [file] = await pickFiles("image/*", { capture: source === "camera" });
   return file ? shrink(file) : null;
 }
 
-export function pickBuildFile() {
-  return pickFile(".zip,application/zip");
+/** Several photos from the gallery, in the order they were selected. Call straight from a tap. */
+export function pickGalleryPhotos() {
+  return pickFiles("image/*", { multiple: true });
+}
+
+export { shrink as preparePhoto };
+
+export async function pickBuildFile() {
+  const [file] = await pickFiles(".zip,application/zip");
+  return file ?? null;
 }
 
 const MIME = { pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation", zip: "application/zip" };
