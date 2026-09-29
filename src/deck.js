@@ -4,8 +4,8 @@ import { loadParts } from "./library.js";
 
 // =============================================================================
 // SLIDE LAYOUT — same 1280 × 720 design-pixel system and colours as Lesson Foundry (app.py).
-// Deck: 1 cover (build name, grade, session) → 2 Materials Required (3 × 3 grid; a 10th part
-// continues on another slide) → the build steps from slide 3 → Thank You.
+// Deck: 1 cover (build name, grade, session) → 2 Materials Required (3 rows × 4 columns of part
+// cards; a 13th part continues on another slide) → the build steps from slide 3 → Thank You.
 // A step slide: "Step N" on the red bar, the instruction highlighted in yellow below it,
 // the part(s) used on the left and the photo of the step on the right.
 // =============================================================================
@@ -29,13 +29,16 @@ export const LAYOUT = {
   quantity: { size: 18 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
+  // Materials slide ("Clean cards"): white cards, picture centred, part name below it,
+  // a rust count circle with a white ring on the picture's top-right corner.
   bom: {
     heading: "Materials Required",
-    area: { x: 70, y: 100, w: 1140, h: 540 },
-    cols: 3, rows: 3, gap: 16, pad: 12,
-    picture: 150,
-    name: { size: 16 },
-    quantity: { size: 24 },
+    area: { x: 70, y: 98, w: 1140, h: 544 },
+    cols: 4, rows: 3, gap: 16,
+    cardRadius: 0.08, cardBorder: "E6DDCF",
+    picturePad: { side: 34, top: 14, bottom: 8 },
+    name: { h: 40, size: 12, minSize: 9, pad: 8 },       // up to two lines
+    badge: { d: 36, ring: 2, size: 14 },
   },
 };
 
@@ -85,18 +88,17 @@ export function bomHeading(page, pageCount) {
   return pageCount > 1 ? `${LAYOUT.bom.heading} (${page + 1}/${pageCount})` : LAYOUT.bom.heading;
 }
 
-/** Card, picture, name and quantity boxes for the i-th part on a Materials slide. */
+/** Card, picture, name and count-circle boxes for the i-th part on a Materials slide. */
 export function bomCell(i, part) {
-  const b = LAYOUT.bom;
+  const b = LAYOUT.bom, p = b.picturePad;
   const w = (b.area.w - b.gap * (b.cols - 1)) / b.cols, h = (b.area.h - b.gap * (b.rows - 1)) / b.rows;
   const card = { x: b.area.x + (i % b.cols) * (w + b.gap), y: b.area.y + Math.floor(i / b.cols) * (h + b.gap), w, h };
-  const picture = fit({ x: card.x + b.pad, y: card.y + b.pad, w: b.picture, h: h - 2 * b.pad }, part.w || 1, part.h || 1);
-  const textX = card.x + b.pad * 2 + b.picture, textW = card.x + w - b.pad - textX;
-  return {
-    card, picture,
-    name: { x: textX, y: card.y + b.pad + 6, w: textW, h: h - 2 * b.pad - 56 },
-    qty: { x: textX, y: card.y + h - b.pad - 46, w: textW, h: 40 },
-  };
+  const name = { x: card.x + b.name.pad, y: card.y + h - b.name.h - 4, w: w - 2 * b.name.pad, h: b.name.h };
+  const picture = fit({ x: card.x + p.side, y: card.y + p.top, w: w - 2 * p.side, h: name.y - p.bottom - (card.y + p.top) }, part.w || 1, part.h || 1);
+  // Circle centred on the picture's top-right corner, kept inside the card.
+  const r = b.badge.d / 2;
+  const cx = Math.min(picture.x + picture.w + 4, card.x + w - r - 6), cy = Math.max(picture.y + 6, card.y + r + 6);
+  return { card, picture, name, badge: { x: cx - r, y: cy - r, w: b.badge.d, h: b.badge.d } };
 }
 
 const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
@@ -249,10 +251,15 @@ export async function buildDeck(build, onProgress = () => {}) {
     for (const [i, { part, qty }] of rows.entries()) {
       const cell = bomCell(i, part);
       const picture = await partPicture(part);
-      slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: 0.12, fill: { color: "FFFFFF" }, line: { color: "E6DDCF", width: 1 } });
+      const b = LAYOUT.bom;
+      slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: 0.75 } });
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
-      text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, LAYOUT.bom.name.size), color: TEXT_COLOR, valign: "top" });
-      text(slide, `x${qty}`, cell.qty, { fontSize: LAYOUT.bom.quantity.size, color: RUST_COLOR, bold: true, valign: "bottom" });
+      text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, b.name.size, b.name.minSize), color: TEXT_COLOR, align: "center", valign: "middle" });
+      slide.addText(String(qty), {
+        shape: pptx.ShapeType.ellipse, x: IN(cell.badge.x), y: IN(cell.badge.y), w: IN(cell.badge.w), h: IN(cell.badge.h),
+        fill: { color: RUST_COLOR }, line: { color: "FFFFFF", width: b.badge.ring },
+        fontFace: FONT_NAME, fontSize: qty > 99 ? b.badge.size - 3 : b.badge.size, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0,
+      });
     }
   }
   for (const [index, step] of build.steps.entries()) {

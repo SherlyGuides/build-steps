@@ -375,14 +375,15 @@ async function generate(build, incomplete) {
 // ---------------------------------------------------------------------------
 
 function bomSlidePreview(rows, page, pageCount) {
+  const b = LAYOUT.bom;
   return `<div class="slide" aria-label="Materials slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(bomHeading(page, pageCount))}</div>
     ${rows.map(({ part, qty }, i) => {
       const c = bomCell(i, part);
       return `<div class="s-card" style="${box(c.card)}"></div>
         <img class="s-part" src="${esc(part.file)}" style="${box(c.picture)}" alt="">
-        <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, LAYOUT.bom.name.size))}">${esc(part.name)}</div>
-        <div class="s-bom-qty" style="${box(c.qty)};${fontSize(LAYOUT.bom.quantity.size)}">x${qty}</div>`;
+        <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, b.name.size, b.name.minSize))}">${esc(part.name)}</div>
+        <div class="s-badge" style="${box(c.badge)};${fontSize(qty > 99 ? b.badge.size - 3 : b.badge.size)}">${qty}</div>`;
     }).join("")}
     ${rows.length ? "" : `<div class="s-photo-empty" style="${box(LAYOUT.bom.area)}">Parts chosen in the steps appear here</div>`}
   </div>`;

@@ -7,7 +7,7 @@ A phone-first web app for making ThinkPro **build instruction decks** (PowerPoin
 3. **Materials required** (the BOM) fills itself in from the parts chosen in the steps, with quantities added up. **Review & edit BOM** lets you change a quantity, hide a part or add an extra part that is not in any step. Edits sit on top of the automatic list, so it keeps updating as steps change, and ↺ returns a part to its automatic count.
 4. **Generate deck** makes `<Build>_G<grade>_S<session>_v<n>.pptx`:
    - slide 1: cover with the build name, grade and session
-   - slide 2: **Materials Required**, a 3 × 3 grid of part pictures, names and quantities (a 10th part continues on another Materials slide)
+   - slide 2: **Materials Required**, 3 rows × 4 columns of white part cards: picture, name below it, and a red count circle on the picture (a 13th part continues on another Materials slide)
    - from slide 3: one slide per step, with "Step N" on the red bar, the instruction highlighted in yellow, the part(s) on the left and the step photo on the right
    - last slide: Thank You
 
