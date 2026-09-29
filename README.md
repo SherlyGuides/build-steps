@@ -47,3 +47,72 @@ npm run dev
 ```
 
 Pushing to `main` builds the app and publishes it to GitHub Pages (`.github/workflows/deploy.yml`).
+
+---
+
+## Portfolio notes
+
+*A case study of this project, kept for a future portfolio.*
+
+### In one line
+
+A phone app that turns "photograph each build step" into a finished, on-brand PowerPoint instruction deck for ThinkPro Academy. It includes an automatic parts list, an AI photo editor and AI-written instructions, and runs at zero ongoing cost.
+
+**Live:** https://sherlyguides.github.io/build-steps/ · **Built:** September 2026 (first version to AI features in two days)
+
+### The problem
+
+ThinkPro Academy teaches with construction kits. Every model needs a step-by-step build deck: one slide per step, with the part to use, a photo of the step and a one-line instruction. These were made by hand in PowerPoint, which was slow, inconsistent from person to person, and painful to update. Changing one photo or instruction meant redoing slides, and a build can have anywhere from 2 to 200 steps.
+
+### What I built
+
+| Area | What it does |
+|---|---|
+| **Build flow** | New build (name, grade, session), then per step: 📷 photo, pick parts from the kit's parts library, write the instruction. Steps can be reordered, inserted, deleted, or added in bulk from the gallery. |
+| **Deck generation** | One tap produces the `.pptx` on the phone: cover, **Materials Required**, one slide per step, Thank You. It uses the same slide design and layout system as the team's existing lesson generator, so decks look house-made. |
+| **Automatic bill of materials** | The Materials slide is worked out from the steps: parts in order of first use, quantities totalled. It keeps updating as steps change, and manual edits (spares, hidden parts, extras) sit on top of the automatic list. |
+| **Flip / turn steps** | Steps that add no part show "before" and "after" photos side by side. |
+| **Photo editor** | Crop (including the slide's exact aspect), rotate, straighten, auto-enhance and adjustments, arrows, circles and boxes to point at the new part, and **AI background removal** with erase/restore brushes. Originals are kept, so edits are non-destructive. |
+| **AI instructions** | ✨ suggests three instructions in the house style that name the part being added *and* the part it attaches to, with stud positions read from the step photo. |
+| **Saving and sharing** | Builds are saved on the device and can be exported as one backup file (photos, originals and cut-outs) and reopened on another phone. It installs to the home screen and works offline, except for AI suggestions. |
+
+![Materials Required slide](docs/materials-slide.jpg)
+![Flip step: before and after](docs/flip-slide.jpg)
+
+### Key decisions and trade-offs
+
+- **Web app instead of an Android APK.** The brief was an APK. I switched to an installable web app, because the same code then runs on iPhone, Android and laptops, testers need only a link, and updates reach everyone on the next launch. The APK tooling (Capacitor, Android SDK) was removed.
+- **Everything client-side where possible.** Deck generation (PptxGenJS), storage (IndexedDB) and the photo editor run in the browser. Hosting is free static GitHub Pages, and no server is needed for the core app.
+- **Background removal on the phone.** I first tried **BiRefNet** (state of the art, MIT licence), but it hit a hardware limit on Apple GPUs in every browser runtime (a shader needed 11 storage buffers where the device allows 10) and ran out of memory on the CPU. I switched to **ISNet**: 84 MB on WebGPU, under a second per photo, with an automatic fallback to a 42 MB 8-bit model on phones without a usable GPU. ISNet is AGPL-3.0, so the app is open source under AGPL.
+- **Choosing the AI for instructions, three times.** Claude through a proxy was judged too much setup for an app this size. A ~400 MB on-phone language model was considered and rejected: too big to download on each phone, too weak at keeping part names exact. The final choice was **Gemini 3.5 Flash-Lite on the free tier**, behind a small proxy on an existing server so the API key never ships in the public app.
+- **Asking the human instead of guessing.** The AI could not reliably tell from one photo which part a new piece sits on. Rather than a bigger model, I added an optional **"Goes onto"** choice, and with it the suggestions were correct every time in testing.
+- **Design by options.** For the Materials slide I rendered five design options on real part pictures, then a second round in a new grid, and the chosen design became the layout used by both the deck and the in-app preview.
+
+![Materials slide design options](docs/materials-design-options.jpg)
+
+### Technical highlights
+
+- **One layout, two renderers.** Every slide position lives in one design-pixel system (1280 × 720). The same numbers drive PowerPoint (PptxGenJS) and the live HTML preview (CSS container units), so the preview matches the deck exactly.
+- **PowerPoint text fitting.** PowerPoint only shrinks text to fit once someone edits it, so long names and instructions are pre-sized in code and wrap onto two lines instead of overflowing.
+- **Non-destructive photo pipeline.** original → rotate/straighten (one matrix) → crop → cut-out composite → adjustments (lookup tables, sharpening) → marks stored in the original photo's coordinates, so they stay attached through any later rotate or crop. It renders at preview size while you edit and at 1,600 px on save.
+- **Small, locked-down AI proxy.** Python standard library only, a systemd service with a dynamic user and memory cap, Caddy with automatic Let's Encrypt HTTPS via an sslip.io hostname (no DNS needed), an origin allow-list, per-phone and daily rate limits, structured JSON output, a fallback model, and no request bodies logged.
+- **Phone details that matter.** The camera opens straight from the tap (browsers only allow that from a user gesture), sharing uses the Web Share API behind its own button (a long deck outlasts the tap's permission), photos are stored at up to 2,000 px, and the app saves its data persistently so Safari doesn't clear it.
+
+### Results
+
+- A deck of any length is **one tap** once the steps exist. Updating one photo or instruction and regenerating takes seconds, and the version number increases automatically.
+- **Zero running cost:** GitHub Pages, on-device background removal, the Gemini free tier (500 suggestions a day) and a free HTTPS certificate on a server that was already running.
+- **Measured:** background removal about 1.5 s per photo on a GPU (about 9 s on a laptop CPU), AI suggestions about 1–3 s.
+
+### Stack
+
+JavaScript (ES modules, Vite) · PptxGenJS · JSZip · IndexedDB · Service worker / web app manifest · Canvas 2D · transformers.js + ONNX Runtime Web (WebGPU / WASM) · ISNet · Python (standard library) · Google Gemini API · Caddy · systemd · AWS EC2 · GitHub Actions + GitHub Pages
+
+### What I would do next
+
+- Add the Innovator, Computational and Tronix parts libraries.
+- Test on more real phones and collect real build photos to tune background removal (shadows, Technic holes, thin axles).
+- Offer an optional team account so builds sync between devices instead of moving by backup file.
+- Build a small evaluation set of real steps to measure the AI instructions before changing the prompt or model.
+
+*Built with the help of Claude Code as a pair-programmer.*
