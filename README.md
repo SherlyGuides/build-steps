@@ -21,6 +21,10 @@ After a photo is taken (or with **✏️ Edit photo** on any step) a full editor
 
 **Background removal** runs on the phone with [ISNet](https://github.com/xuebinqin/DIS) (via [transformers.js](https://huggingface.co/docs/transformers.js)). The model is downloaded once from Hugging Face: 84 MB on phones whose browser has a GPU with 16-bit support (under a second per photo), 42 MB otherwise (processor only, about 20–40 seconds). Erase and Restore brushes fix anything the model gets wrong.
 
+## AI suggestions for instructions
+
+**✨ Improve with AI** under a step's instruction (or **✨ Write with AI** when it is empty) offers three rewrites in the house style: Corrected, Clearer and Shorter. Tap one to use it; Undo puts the old text back. It needs the internet. The suggestions come from Google Gemini through a small proxy on the Lesson Foundry server that keeps the API key private (`server/`). Only the instruction text, part names, grade and step number are sent, never photos.
+
 ## Licence
 
 GNU AGPL-3.0 (see `LICENSE`), because the background-removal model (ISNet) is AGPL-3.0. Anyone may use the app, including commercially, and its source code stays public here. Decks, photos and build files made with the app are yours and are not affected.

@@ -315,3 +315,12 @@ body.pe-open { overflow: hidden; }
 .pe .spinner { border-color: #33393E; border-top-color: var(--orange); }
 .source-link { text-align: center; font-size: 12px; color: var(--muted); margin-top: 22px; }
 .source-link a { text-decoration: underline; }
+
+/* AI suggestions */
+.ai-btn { margin-top: 2px; }
+.ai-out { display: grid; gap: 8px; }
+.ai-card { display: grid; gap: 3px; text-align: left; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); font-size: 15px; line-height: 1.35; cursor: pointer; }
+.ai-card b { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--rust); }
+.ai-card:active { background: var(--soft); border-color: var(--orange); }
+.hint.error { color: var(--danger); }
+.link { border: 0; background: none; padding: 0; color: var(--rust); font-weight: 650; text-decoration: underline; cursor: pointer; }

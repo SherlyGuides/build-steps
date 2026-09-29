@@ -2,6 +2,7 @@ import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, 
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
 import { LAYOUT, MOVES, bomCell, fittedSize, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, moveIconBox, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
+import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
 import { buildFileName, exportBuild, importBuild } from "./transfer.js";
 
@@ -562,8 +563,10 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
 
         <div class="field">
           <h3>3 · Instruction</h3>
-          <textarea id="instruction" rows="3" maxlength="${MAX_INSTRUCTION}" enterkeyhint="done" autocapitalize="sentences" placeholder="e.g. Take 1X4 brick and fix it on top of the technic brick">${esc(step.instruction)}</textarea>
+          <textarea id="instruction" rows="3" maxlength="${MAX_INSTRUCTION}" enterkeyhint="done" autocapitalize="sentences" spellcheck="true" autocorrect="on" lang="en" placeholder="e.g. Take 1X4 brick and fix it on top of the technic brick">${esc(step.instruction)}</textarea>
           <p class="hint" id="count"></p>
+          <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
+          <div id="ai-out" class="ai-out" aria-live="polite"></div>
         </div>
 
         <div class="row step-actions">
@@ -592,8 +595,44 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       typing = setTimeout(save, 400);
     });
     $("#instruction").addEventListener("blur", save);
+    // Grammarly and other writing tools may replace the text without a keystroke: save that too.
+    $("#instruction").addEventListener("change", e => {
+      step.instruction = e.target.value.replace(/\s*\n\s*/g, " ");
+      count();
+      save();
+    });
     // The instruction is one line on the slide, so Enter closes the keyboard instead.
     $("#instruction").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+    $("#instruction").addEventListener("input", () => { $("#ai").textContent = $("#instruction").value.trim() ? "✨ Improve with AI" : "✨ Write with AI"; });
+    $("#ai").addEventListener("click", async () => {
+      const button = $("#ai"), out = $("#ai-out");
+      button.disabled = true;
+      out.innerHTML = `<p class="hint">Asking the AI…</p>`;
+      try {
+        const suggestions = await suggestInstructions({
+          instruction: step.instruction,
+          parts: MOVES[step.move] ? [] : step.parts.map(p => ({ name: library.get(p.id)?.name ?? "", qty: p.qty })).filter(p => p.name),
+          move: step.move,
+          grade: build.grade,
+          step: index + 1,
+        });
+        out.innerHTML = `${suggestions.map((s, i) => `<button class="ai-card" data-ai="${i}"><b>${esc(s.label)}</b>${esc(s.text)}</button>`).join("")}
+          <p class="hint">Tap one to use it. You can still edit it afterwards.</p>`;
+        out.querySelectorAll("[data-ai]").forEach(card => card.addEventListener("click", () => {
+          const before = step.instruction;
+          const box = $("#instruction");
+          box.value = suggestions[+card.dataset.ai].text;
+          box.dispatchEvent(new Event("input"));
+          save();
+          out.innerHTML = `<p class="hint">Instruction replaced. <button class="link" id="ai-undo">Undo</button></p>`;
+          $("#ai-undo").addEventListener("click", () => { box.value = before; box.dispatchEvent(new Event("input")); save(); out.innerHTML = ""; });
+        }));
+      } catch (error) {
+        out.innerHTML = `<p class="hint error">${esc(error.message)}</p>`;
+      } finally {
+        button.disabled = false;
+      }
+    });
     $("#camera").addEventListener("click", () => setPhoto("camera"));
     $("#gallery").addEventListener("click", () => setPhoto("gallery"));
     $("#edit-photo")?.addEventListener("click", async () => {

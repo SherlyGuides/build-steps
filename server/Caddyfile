@@ -1,0 +1,6 @@
+# HTTPS for the Build Steps AI proxy. sslip.io turns the name into the server's IP, so no DNS
+# setup is needed; Caddy gets and renews the Let's Encrypt certificate by itself.
+51-21-180-129.sslip.io {
+	encode gzip
+	reverse_proxy 127.0.0.1:8787
+}
