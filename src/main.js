@@ -508,7 +508,7 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc) {
       const { image, qtyBox, nameBox } = placed[i];
       return `<img class="s-part" src="${esc(part.file)}" style="${box(image)}" alt="">
         ${qtyBox ? `<div class="s-qty" style="${box(qtyBox)};${fontSize(LAYOUT.quantity.size)}">x${qty}</div>` : ""}
-        ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, LAYOUT.partName.size, 8))}">${esc(part.name)}</div>` : ""}`;
+        ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, LAYOUT.partName.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
     }).join("")}
     ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(move ? LAYOUT.moveAfter : LAYOUT.photo, step.photo.w, step.photo.h))}" alt="">`
       : `<div class="s-photo-empty" style="${box(move ? LAYOUT.moveAfter : LAYOUT.photo)}">${move ? "Photo after the move" : "Step photo"}</div>`}

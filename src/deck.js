@@ -28,8 +28,8 @@ export const LAYOUT = {
   // Flip / turn steps: before (previous step's photo) and after, the same size.
   moveBefore: { x: 50, y: 175, w: 570, h: 465 },
   moveAfter: { x: 650, y: 175, w: 570, h: 465 },
-  partName: { h: 34, size: 12 },
-  quantity: { size: 18 },
+  partName: { h: 80, size: 24, minSize: 16 },   // up to two lines under the part picture
+  quantity: { size: 24 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
   // Materials slide ("Clean cards"): white cards, picture centred, part name below it,
@@ -159,7 +159,7 @@ export function partCells(count, area = LAYOUT.parts) {
   }));
 }
 
-const QTY_H = 30;
+const QTY_H = 38;
 
 /**
  * Where each part's picture, quantity ("x2") and optional name go. The labels sit directly under
@@ -271,7 +271,7 @@ export async function buildDeck(build, onProgress = () => {}) {
       const picture = await partPicture(part);
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
       if (qtyBox) text(slide, `x${qty}`, qtyBox, { fontSize: LAYOUT.quantity.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
-      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, LAYOUT.partName.size, 8), color: SUBTITLE_COLOR, align: "center", valign: "top" });
+      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, LAYOUT.partName.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
     }
 
     if (step.photo) {
