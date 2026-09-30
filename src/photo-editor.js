@@ -252,7 +252,9 @@ async function maskCanvas(blob) {
  * Open the editor full screen. Resolves to { blob, w, h, edits, maskBlob } when the user taps
  * Done (maskBlob only when the cut-out changed), or null on Cancel.
  */
-export async function editPhoto(originalBlob, startEdits, maskBlob = null) {
+export async function editPhoto(originalBlob, startEdits, maskBlob = null, { slideAspect = LAYOUT.photo.w / LAYOUT.photo.h } = {}) {
+  // "Slide" crops to the exact shape of this step's photo area, which depends on its part/photo split.
+  const aspects = ASPECTS.map(a => a.id === "slide" ? { ...a, ratio: slideAspect } : a);
   const img = await loadBlobImage(originalBlob);
   let e = structuredClone({ ...blankEdits(), ...startEdits, adjust: { ...NEUTRAL_ADJUST, ...startEdits?.adjust } });
   let mask = maskBlob ? await maskCanvas(maskBlob) : null, maskChanged = false, maskVersion = 0;
@@ -324,7 +326,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null) {
   }
   function setAspect(id) {
     aspect = id;
-    const ratio = ASPECTS.find(a => a.id === id).ratio;
+    const ratio = aspects.find(a => a.id === id).ratio;
     if (!ratio) return;
     snapshot();
     const { W, H } = rotatedSize();
@@ -356,7 +358,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null) {
       const ax = west ? start.x + start.w : start.x, ay = north ? start.y + start.h : start.y; // fixed corner
       let px = clamp((west ? start.x : start.x + start.w) + dx, 0, 1), py = clamp((north ? start.y : start.y + start.h) + dy, 0, 1);
       let w = Math.max(MIN, Math.abs(px - ax)), h = Math.max(MIN, Math.abs(py - ay));
-      const ratio = ASPECTS.find(a => a.id === aspect).ratio;
+      const ratio = aspects.find(a => a.id === aspect).ratio;
       if (ratio) {
         const { W, H } = rotatedSize(), k = (W / H) / ratio; // h = w * k keeps the shape
         if (w * k > h) h = w * k; else w = h / k;
@@ -453,7 +455,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null) {
         </div>
         <label class="pe-slider"><span>Straighten <b>${e.straighten > 0 ? "+" : ""}${e.straighten}°</b></span>
           <input type="range" min="-15" max="15" step="0.5" value="${e.straighten}" data-range="straighten"></label>
-        <div class="pe-chips">${ASPECTS.map(a => `<button class="pe-chip ${a.id === aspect ? "on" : ""}" data-aspect="${a.id}">${a.label}</button>`).join("")}</div>`;
+        <div class="pe-chips">${aspects.map(a => `<button class="pe-chip ${a.id === aspect ? "on" : ""}" data-aspect="${a.id}">${a.label}</button>`).join("")}</div>`;
     } else if (tab === "bg") {
       panel.innerHTML = !e.cutout ? `
         <button class="pe-big" data-act="removebg" ${working ? "disabled" : ""}>✂️ Remove background</button>

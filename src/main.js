@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { LAYOUT, MOVES, bomCell, fittedSize, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, partLayout, stepHeading } from "./deck.js";
+import { LAYOUT, MOVES, bomCell, fittedSize, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -47,10 +47,10 @@ async function photoUrl(photo) {
 // ---------------------------------------------------------------------------
 
 /** Store a new original (from camera or gallery). With edit, the photo editor opens first. */
-async function newPhoto(shot, { edit }) {
+async function newPhoto(shot, { edit, slideAspect }) {
   const original = { id: uid(), w: shot.w, h: shot.h };
   await putImage(original.id, shot.blob);
-  const edited = edit ? await editPhoto(shot.blob, blankEdits()) : null;
+  const edited = edit ? await editPhoto(shot.blob, blankEdits(), null, { slideAspect }) : null;
   const out = edited ?? await renderPhoto(shot.blob);
   const photo = { id: uid(), w: out.w, h: out.h, original, edits: edited?.edits ?? blankEdits(), maskId: null };
   if (edited?.maskBlob) { photo.maskId = uid(); await putImage(photo.maskId, edited.maskBlob); }
@@ -59,11 +59,11 @@ async function newPhoto(shot, { edit }) {
 }
 
 /** Reopen the editor on a step photo. Resolves to the new photo, or null if cancelled. */
-async function reEditPhoto(photo) {
+async function reEditPhoto(photo, slideAspect) {
   const original = photo.original ?? { id: photo.id, w: photo.w, h: photo.h }; // photos from before the editor
   const originalBlob = await getImage(original.id);
   if (!originalBlob) throw new Error("This photo's original is missing, so it cannot be edited. Retake it instead.");
-  const edited = await editPhoto(originalBlob, photo.edits, photo.maskId ? await getImage(photo.maskId) : null);
+  const edited = await editPhoto(originalBlob, photo.edits, photo.maskId ? await getImage(photo.maskId) : null, { slideAspect });
   if (!edited) return null;
   const next = { id: uid(), w: edited.w, h: edited.h, original, edits: edited.edits, maskId: photo.maskId ?? null };
   if (edited.maskBlob) { next.maskId = uid(); await putImage(next.maskId, edited.maskBlob); }
@@ -121,7 +121,6 @@ async function detailsDialog(build) {
         <label>Session<select name="session" required>${build ? "" : '<option value="" selected disabled>Choose</option>'}${range(MIN_SESSION, MAX_SESSION, build?.session)}</select></label>
       </div>
       <label>Parts library<select name="kit" ${build?.steps.some(s => s.parts.length) ? "disabled" : ""}>${kits.map(k => `<option value="${esc(k.id)}" ${k.id === (build?.kit ?? kits[0].id) ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
-      <label class="check"><input type="checkbox" name="showPartNames" ${build?.showPartNames ? "checked" : ""}> Print part names under the part pictures</label>
       <div class="dialog-actions"><button type="button" class="btn ghost" data-close>Cancel</button>
       <button class="btn primary">${build ? "Save" : "Start build"}</button></div>
     </form>`,
@@ -131,7 +130,7 @@ async function detailsDialog(build) {
       e.preventDefault();
       const name = form.name.value.replace(/\s+/g, " ").trim();
       if (!name) { form.name.focus(); return; }
-      close({ name, grade: Number(form.grade.value), session: Number(form.session.value), kit: form.kit.value || build?.kit, showPartNames: form.showPartNames.checked });
+      close({ name, grade: Number(form.grade.value), session: Number(form.session.value), kit: form.kit.value || build?.kit });
     });
   });
 }
@@ -262,12 +261,24 @@ async function renderBuild(buildId) {
 
 // Called straight from a tap: the camera opens first (browsers only allow that from a tap),
 // then the new step opens with the part list, so each step is photo → part → instruction.
+/** Width ÷ height of a step's photo area, for the photo editor's "Slide" crop. */
+function slideAspectOf(step) {
+  const { photo } = stepAreas(step);
+  return photo.w / photo.h;
+}
+
+/** Slide settings a new step copies from the step before it, so a long build keeps one layout. */
+function inheritedLayout(build, at) {
+  const before = build.steps[at - 1];
+  return before ? { split: before.split, partName: before.partName ? { ...before.partName } : undefined } : {};
+}
+
 async function addStep(build, at) {
   const shooting = takePhoto("camera").catch(error => { fail(error); return null; });
-  const step = { id: uid(), instruction: "", move: null, parts: [], onto: [], photo: null };
+  const step = { id: uid(), instruction: "", move: null, parts: [], onto: [], photo: null, ...inheritedLayout(build, at) };
   const shot = await shooting;
   if (shot) {
-    try { step.photo = await newPhoto(shot, { edit: true }); } catch (error) { fail(error); }
+    try { step.photo = await newPhoto(shot, { edit: true, slideAspect: slideAspectOf(step) }); } catch (error) { fail(error); }
   }
   const fresh = await getBuild(build.id);
   fresh.steps.splice(at, 0, step);
@@ -288,7 +299,7 @@ async function addStepsFromGallery(build) {
     for (const [i, file] of files.entries()) {
       busy(true, `Adding photo ${i + 1} of ${files.length}…`);
       const photo = await newPhoto(await preparePhoto(file), { edit: false });
-      steps.push({ id: uid(), instruction: "", move: null, parts: [], photo });
+      steps.push({ id: uid(), instruction: "", move: null, parts: [], onto: [], photo, ...inheritedLayout(build, build.steps.length) });
     }
   } catch (error) {
     fail(error);
@@ -498,7 +509,8 @@ const fontSize = pt => `font-size:${(pt * 96 / 72 / 1280) * 100}cqw`;
 function slidePreview(build, step, index, library, photoSrc, beforeSrc) {
   const move = MOVES[step.move];
   const parts = move ? [] : step.parts.map(p => ({ ...p, part: library.get(p.id) })).filter(p => p.part);
-  const placed = partLayout(parts, build.showPartNames);
+  const areas = stepAreas(step), names = partNameStyle(step, build);
+  const placed = partLayout(parts, names, areas.parts);
   return `<div class="slide" aria-label="Slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(stepHeading(index))}</div>
     <div class="s-instruction" style="${box(LAYOUT.instruction)};${fontSize(fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, 14))}">${step.instruction.trim() ? `<mark>${esc(step.instruction.trim())}</mark>` : ""}</div>
@@ -508,10 +520,10 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc) {
       const { image, qtyBox, nameBox } = placed[i];
       return `<img class="s-part" src="${esc(part.file)}" style="${box(image)}" alt="">
         ${qtyBox ? `<div class="s-qty" style="${box(qtyBox)};${fontSize(LAYOUT.quantity.size)}">x${qty}</div>` : ""}
-        ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, LAYOUT.partName.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
+        ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
     }).join("")}
-    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(move ? LAYOUT.moveAfter : LAYOUT.photo, step.photo.w, step.photo.h))}" alt="">`
-      : `<div class="s-photo-empty" style="${box(move ? LAYOUT.moveAfter : LAYOUT.photo)}">${move ? "Photo after the move" : "Step photo"}</div>`}
+    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h))}" alt="">`
+      : `<div class="s-photo-empty" style="${box(move ? LAYOUT.moveAfter : areas.photo)}">${move ? "Photo after the move" : "Step photo"}</div>`}
   </div>`;
 }
 
@@ -581,7 +593,23 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <p class="hint" id="count"></p>
           <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
           <div id="ai-out" class="ai-out" aria-live="polite"></div>
+          ${MOVES[step.move] ? "" : `
+          <label class="switch"><input type="checkbox" id="pn-show" ${partNameStyle(step, build).show ? "checked" : ""}><span></span> Show part name under the picture</label>
+          <div class="pe-size ${partNameStyle(step, build).show ? "" : "off"}" id="pn-sizes" role="radiogroup" aria-label="Part name size">
+            ${LAYOUT.partName.sizes.map((pt, i) => `<button role="radio" aria-checked="${partNameStyle(step, build).size === pt}" data-pn-size="${pt}">${["Small", "Medium", "Large", "Extra large"][i]} <small>${pt} pt</small></button>`).join("")}
+          </div>`}
         </div>
+
+        ${MOVES[step.move] ? "" : `
+        <div class="field">
+          <h3>4 · Slide layout</h3>
+          <label class="split">
+            <span><b id="split-label"></b></span>
+            <input type="range" id="split" min="${LAYOUT.split.min * 100}" max="${LAYOUT.split.max * 100}" step="1" value="${Math.round(stepSplit(step) * 100)}">
+            <span class="split-ends"><span>Part ¼ · Photo ¾</span><span>½ · ½</span></span>
+          </label>
+          <button class="link" id="layout-all">Use this layout for all steps</button>
+        </div>`}
 
         <div class="row step-actions">
           <button class="btn danger-ghost" id="delete">Delete step</button>
@@ -656,7 +684,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     $("#gallery").addEventListener("click", () => setPhoto("gallery"));
     $("#edit-photo")?.addEventListener("click", async () => {
       try {
-        const next = await reEditPhoto(step.photo);
+        const next = await reEditPhoto(step.photo, MOVES[step.move] ? LAYOUT.moveAfter.w / LAYOUT.moveAfter.h : slideAspectOf(step));
         if (!next) return;
         step.photo = next;
         await save();
@@ -664,6 +692,38 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       } catch (error) { fail(error); }
     });
     $("#add-part")?.addEventListener("click", () => { location.hash = `${here}/parts`; });
+    // Slide layout and part names: update the preview straight away, save as they change.
+    const refreshPreview = async () => {
+      $(".preview").innerHTML = slidePreview(build, step, index, library, src, MOVES[step.move] ? await photoUrl(build.steps[index - 1]?.photo) : "");
+    };
+    const splitLabel = () => {
+      const part = stepSplit(step);
+      $("#split-label").textContent = `Part ${Math.round(part * 100)}% · Photo ${100 - Math.round(part * 100)}%`;
+    };
+    if ($("#split")) {
+      splitLabel();
+      $("#split").addEventListener("input", e => { step.split = Number(e.target.value) / 100; splitLabel(); refreshPreview(); });
+      $("#split").addEventListener("change", () => save());
+      $("#layout-all").addEventListener("click", async () => {
+        if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split${partNameStyle(step, build).show ? ` and part names at ${partNameStyle(step, build).size} pt` : " and no part names"}.`, "Apply to all", false))) return;
+        for (const other of build.steps) { other.split = step.split; other.partName = { ...partNameStyle(step, build) }; }
+        await save();
+        toast("Layout applied to all steps.");
+      });
+    }
+    $("#pn-show")?.addEventListener("change", async e => {
+      step.partName = { ...partNameStyle(step, build), show: e.target.checked };
+      $("#pn-sizes").classList.toggle("off", !e.target.checked);
+      await save(); refreshPreview();
+    });
+    app.querySelectorAll("[data-pn-size]").forEach(b => b.addEventListener("click", async () => {
+      step.partName = { show: true, size: Number(b.dataset.pnSize) };
+      $("#pn-show").checked = true;
+      $("#pn-sizes").classList.remove("off");
+      app.querySelectorAll("[data-pn-size]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+      await save(); refreshPreview();
+    }));
+
     app.querySelectorAll("[data-move]").forEach(b => b.addEventListener("click", async () => {
       const move = b.dataset.move || null;
       if (move === (step.move ?? null)) return;
@@ -702,7 +762,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       const shot = await takePhoto(source);
       if (!shot) return;
       const old = step.photo;
-      step.photo = await newPhoto(shot, { edit: true });
+      step.photo = await newPhoto(shot, { edit: true, slideAspect: MOVES[step.move] ? LAYOUT.moveAfter.w / LAYOUT.moveAfter.h : slideAspectOf(step) });
       await save();
       if (old) await dropPhoto(old);
       await draw();

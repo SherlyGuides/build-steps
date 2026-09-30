@@ -23,12 +23,17 @@ export const LAYOUT = {
   },
   heading: { x: 40, y: 20, w: 1060, h: 52, size: 32 },
   instruction: { x: 60, y: 100, w: 1160, h: 64, size: 20 },
+  // Step slide: part(s) on the left, step photo on the right. The split is set per step,
+  // from ¼ – ¾ (small part, big photo) to ½ – ½; see stepAreas().
+  content: { x: 50, right: 1220, gap: 40 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
+  split: { min: 0.25, max: 0.5, default: 0.4 },
   // Flip / turn steps: before (previous step's photo) and after, the same size.
   moveBefore: { x: 50, y: 175, w: 570, h: 465 },
   moveAfter: { x: 650, y: 175, w: 570, h: 465 },
-  partName: { h: 80, size: 24, minSize: 16 },   // up to two lines under the part picture
+  // Part name under the part picture: off unless turned on for the step; up to two lines.
+  partName: { sizes: [16, 20, 24, 28], default: 24, minSize: 12 },
   quantity: { size: 24 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
@@ -151,6 +156,31 @@ export function partsGrid(count) {
   return { cols, rows: Math.ceil(count / cols) };
 }
 
+/** The step's share of the width for the part(s), between ¼ and ½. */
+export function stepSplit(step) {
+  const { min, max } = LAYOUT.split;
+  const value = Number(step?.split);
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : LAYOUT.split.default;
+}
+
+/** Part area (left) and photo area (right) for a step slide. */
+export function stepAreas(step) {
+  const { x, right, gap } = LAYOUT.content;
+  const width = right - x - gap;
+  const partsW = Math.round(width * stepSplit(step));
+  return {
+    parts: { x, y: LAYOUT.parts.y, w: partsW, h: LAYOUT.parts.h },
+    photo: { x: x + partsW + gap, y: LAYOUT.photo.y, w: width - partsW, h: LAYOUT.photo.h },
+  };
+}
+
+/** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
+export function partNameStyle(step, build) {
+  const show = step?.partName ? !!step.partName.show : !!build?.showPartNames;
+  const size = LAYOUT.partName.sizes.includes(step?.partName?.size) ? step.partName.size : LAYOUT.partName.default;
+  return { show, size };
+}
+
 export function partCells(count, area = LAYOUT.parts) {
   const { cols, rows } = partsGrid(count);
   const w = area.w / cols, h = area.h / rows, pad = count > 1 ? 10 : 0;
@@ -166,16 +196,18 @@ const QTY_H = 38;
  * the picture, so they stay with it however wide or tall the picture is.
  * parts: [{ part: { w, h, name }, qty }]
  */
-export function partLayout(parts, showNames) {
-  const cells = partCells(parts.length);
+export function partLayout(parts, names, area = LAYOUT.parts) {
+  const cells = partCells(parts.length, area);
+  // Room for two lines of the chosen size (points -> design pixels, 1.2 line height).
+  const nameH = names.show ? Math.ceil(names.size * 96 / 72 * 1.2 * 2) + 4 : 0;
   return parts.map(({ part, qty }, i) => {
     const cell = cells[i];
-    const below = (qty > 1 ? QTY_H : 0) + (showNames ? LAYOUT.partName.h : 0);
+    const below = (qty > 1 ? QTY_H : 0) + nameH;
     const image = fit({ ...cell, h: cell.h - below }, part.w || 1, part.h || 1);
     let y = image.y + image.h;
     const qtyBox = qty > 1 ? { x: cell.x, y, w: cell.w, h: QTY_H } : null;
     if (qtyBox) y += QTY_H;
-    const nameBox = showNames ? { x: cell.x, y, w: cell.w, h: LAYOUT.partName.h } : null;
+    const nameBox = names.show ? { x: cell.x, y, w: cell.w, h: nameH } : null;
     return { image, qtyBox, nameBox };
   });
 }
@@ -265,19 +297,20 @@ export async function buildDeck(build, onProgress = () => {}) {
       }
     }
     const parts = MOVES[step.move] ? [] : step.parts.map(p => ({ ...p, part: library.get(p.id) })).filter(p => p.part);
-    const placed = partLayout(parts, build.showPartNames);
+    const areas = stepAreas(step), names = partNameStyle(step, build);
+    const placed = partLayout(parts, names, areas.parts);
     for (const [i, { part, qty }] of parts.entries()) {
       const { image, qtyBox, nameBox } = placed[i];
       const picture = await partPicture(part);
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
       if (qtyBox) text(slide, `x${qty}`, qtyBox, { fontSize: LAYOUT.quantity.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
-      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, LAYOUT.partName.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
+      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
     }
 
     if (step.photo) {
       const blob = await getImage(step.photo.id);
       if (blob) {
-        const box = fit(move ? LAYOUT.moveAfter : LAYOUT.photo, step.photo.w, step.photo.h);
+        const box = fit(move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
       }
     }

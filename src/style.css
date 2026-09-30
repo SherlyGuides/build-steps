@@ -339,3 +339,21 @@ body.pe-open { overflow: hidden; }
 .build-row .build-card { flex: 1; min-width: 0; }
 .delete-build { flex: none; align-self: center; width: 48px; height: 48px; font-size: 20px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
 .delete-build:active { background: #FDECEA; border-color: #EBC9C6; }
+
+/* Part name switch, size choice and slide-layout slider */
+.switch { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; margin-top: 6px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch span { position: relative; width: 46px; height: 28px; flex: none; border-radius: 999px; background: #D8CFC3; transition: background .15s; }
+.switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .25); transition: transform .15s; }
+.switch input:checked + span { background: var(--rust); }
+.switch input:checked + span::after { transform: translateX(18px); }
+.switch input:focus-visible + span { outline: 3px solid rgb(239 125 55 / .4); }
+.pe-size { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pe-size.off { opacity: .45; }
+.pe-size button { padding: 8px 4px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); font-size: 13px; font-weight: 600; cursor: pointer; display: grid; gap: 1px; }
+.pe-size button small { font-weight: 500; color: var(--muted); font-size: 11.5px; }
+.pe-size button[aria-checked="true"] { border-color: var(--rust); color: var(--rust); background: #FFF6F1; }
+.split { display: grid; gap: 6px; }
+.split input { width: 100%; accent-color: var(--rust); padding: 0; min-height: 36px; border: 0; background: none; box-shadow: none; }
+.split-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+#layout-all { justify-self: start; font-size: 14px; }

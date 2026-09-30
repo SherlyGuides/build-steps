@@ -62,6 +62,8 @@ export async function importBuild(file) {
       move: step.move === "flip" || step.move === "turn" ? step.move : null,
       parts: Array.isArray(step.parts) ? step.parts.map(p => ({ id: String(p.id), qty: Math.max(1, Number(p.qty) || 1) })) : [],
       onto: Array.isArray(step.onto) ? step.onto.map(String).slice(0, 2) : [],
+      split: Number.isFinite(Number(step.split)) ? Number(step.split) : undefined,
+      partName: step.partName && typeof step.partName === "object" ? { show: !!step.partName.show, size: Number(step.partName.size) || undefined } : undefined,
       photo,
     });
   }
