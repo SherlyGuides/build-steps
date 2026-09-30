@@ -71,7 +71,7 @@ export async function importBuild(file) {
     steps.push({
       id: uid(),
       instruction: String(step.instruction ?? ""),
-      move: step.move === "flip" || step.move === "turn" ? step.move : null,
+      move: ["prev", "flip", "turn"].includes(step.move) ? step.move : null,
       parts,
       onto: Array.isArray(step.onto) ? step.onto.map(String).slice(0, 2) : [],
       split: Number.isFinite(Number(step.split)) ? Number(step.split) : undefined,

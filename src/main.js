@@ -673,9 +673,9 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <h3>2 · What this step does</h3>
           <div class="segmented" role="radiogroup">
             <button role="radio" aria-checked="${!MOVES[step.move]}" data-move="">Adds parts</button>
-            ${Object.entries(MOVES).map(([key, m]) => `<button role="radio" aria-checked="${step.move === key}" data-move="${key}">${esc(m.label)}</button>`).join("")}
+            <button role="radio" aria-checked="${!!MOVES[step.move]}" data-move="prev">${esc(MOVES.prev.label)}</button>
           </div>
-          ${MOVES[step.move] ? `<p class="hint">No part is added. The slide shows two photos: the previous step's photo on the left (before) and this step's photo on the right (after the ${step.move === "flip" ? "flip" : "turn"}).${index && !build.steps[index - 1].photo ? " <b>The previous step has no photo yet.</b>" : ""}</p>` : `
+          ${MOVES[step.move] ? `<p class="hint">No part is added. The slide shows two photos: the previous step's photo on the left (before) and this step's photo on the right (after), for example when the model is flipped or turned.${index && !build.steps[index - 1].photo ? " <b>The previous step has no photo yet.</b>" : ""}</p>` : `
           <ul class="chosen">${(await Promise.all(step.parts.map(async (p, i) => {
             const part = library.get(p.id);
             const thumb = p.pic ? await photoUrl(p.pic) : part?.file;
@@ -889,7 +889,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
 
     app.querySelectorAll("[data-move]").forEach(b => b.addEventListener("click", async () => {
       const move = b.dataset.move || null;
-      if (move === (step.move ?? null)) return;
+      if (!!move === !!MOVES[step.move]) return;   // already this kind of step (old "flip"/"turn" count as "prev")
       if (move && step.parts.length && !(await confirmDialog(`Make this a "${MOVES[move].label}" step?`, `The ${step.parts.length} part${step.parts.length === 1 ? "" : "s"} chosen for this step will be removed.`, "Change step", false))) return;
       const previous = MOVES[step.move]?.instruction;
       if (move) step.parts = [];

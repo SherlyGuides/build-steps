@@ -114,11 +114,13 @@ export function bomCell(i, part) {
 
 const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
 
-// Steps where no part is added: the assembly is flipped or turned. Their slide shows two photos
-// side by side: the previous step's photo (before) on the left and this step's (after) on the right.
+// "Use previous image" steps: no part is added (the model is flipped, turned, or just shown again).
+// Their slide shows two photos side by side: the previous step's photo (before) on the left and
+// this step's (after) on the right. "flip" and "turn" are older names for the same thing.
 export const MOVES = {
-  flip: { label: "Flip over", instruction: "Flip the assembly upside down" },
-  turn: { label: "Turn around", instruction: "Turn the assembly around" },
+  prev: { label: "Use previous image", instruction: "" },
+  flip: { label: "Use previous image", instruction: "", legacy: true },
+  turn: { label: "Use previous image", instruction: "", legacy: true },
 };
 
 export function stepHeading(index) {
@@ -303,7 +305,7 @@ export async function buildDeck(build, onProgress = () => {}) {
 
     const move = MOVES[step.move];
     const areas = stepAreas(step);
-    // A custom left picture replaces the part pictures (or, on a flip/turn step, the "before" photo).
+    // A custom left picture replaces the part pictures (or, on a "Use previous image" step, the previous photo).
     const single = isSinglePicture(step);
     const left = single ? null : step.leftPhoto;
     if (left) {

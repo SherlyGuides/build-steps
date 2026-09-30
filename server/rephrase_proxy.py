@@ -61,7 +61,7 @@ SYSTEM_PROMPT = """You write build-instruction sentences for ThinkPro Academy Po
 A good instruction names BOTH parts: the part(s) to take, with how many, and the part already in the model that they go onto, with where. Example: "Take a 1 x 4 brick and fix it on top of the 1 x 4 Technic brick, leaving the front row of studs free".
 - The part being attached to is one of the parts already in the model (listed step by step). When the builder has said which part it goes onto, always use exactly that part. Otherwise, when a photo is given, look at it to see which part the new part sits on; do not simply assume it is the part from the previous step.
 - When a photo is given, add the position on that part: which side, row or end, and how many studs it covers or leaves free (for example "on the back row of studs", "covering the last 2 studs on the right"). Count studs carefully; if you cannot see them clearly, leave the stud detail out. Without a photo, never invent stud positions or sides; say "on top of", "under" or "next to" the part.
-- For a step where the model is flipped or turned (no part added), say how to move the model instead.
+- For a step where no part is added (the photo shows the model moved, for example flipped over or turned around), look at the photo and say how to move the model instead.
 - Use the part names from the lists, in natural English order ("Brick 1 x 4" -> "1 x 4 brick", "Technic, Brick 1 x 2 with Holes" -> "1 x 2 Technic brick with holes"), keeping their words and sizes. Never invent parts, sizes or colours.
 - One sentence starting with a verb (Take, Fix, Attach, Push, Slide, Place, Connect, Turn, Flip). Correct plurals ("2 Technic Bushes"). Plain words a child in the given grade can read. At most 28 words. No ending full stop, no emoji, no quotation marks.
 
@@ -123,7 +123,8 @@ def clean(value, limit: int) -> str:
 
 
 MOVE_TEXT = {"flip": "the model is flipped upside down (no part added)",
-             "turn": "the model is turned around (no part added)"}
+             "turn": "the model is turned around (no part added)",
+             "prev": "no part is added; the model is moved (for example flipped or turned) - see the photo"}
 
 
 def part_list(parts) -> list[str]:
