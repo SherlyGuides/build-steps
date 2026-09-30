@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MOVES, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MAX_STEP_PARTS, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -685,7 +685,7 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
         ${qtyBox ? `<div class="s-qty" style="${box(qtyBox)};${fontSize(LAYOUT.quantity.size)}">x${qty}</div>` : ""}
         ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
     }).join("")}
-    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(single ? LAYOUT.single : areas.photo, step.photo.w, step.photo.h))}" alt="">`
+    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(photoBox(step, step.photo))}" alt="">`
       : `<div class="s-photo-empty" style="${box(single ? LAYOUT.single : areas.photo)}">${move && !single ? "Photo after the move" : "Step photo"}</div>`}
   </div>`;
 }
@@ -1046,6 +1046,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     add: id => {
       const chosen = step.parts.find(p => p.id === id);
       if (chosen) chosen.qty = Math.min(99, chosen.qty + 1);
+      else if (step.parts.length >= MAX_STEP_PARTS) { toast(`A step can use up to ${MAX_STEP_PARTS} different parts. Remove one first, or add the part in the next step.`); return false; }
       else step.parts.push({ id, qty: 1 });
     },
     remove: id => {
@@ -1156,7 +1157,7 @@ function partPicker({ build, library, back, title, subtitle, count, add, remove 
     const button = e.target.closest("[data-id]");
     if (!button) return;
     const id = button.dataset.id;
-    add(id);
+    if (add(id) === false) return;
     refreshTile(id);
     await saveBuild(build);
   });

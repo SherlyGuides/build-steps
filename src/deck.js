@@ -29,7 +29,7 @@ export const LAYOUT = {
   content: { x: 50, right: 1220, gap: 40 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
-  split: { min: 0.1, max: 0.9, default: 0.4 },
+  split: { min: 0.1, max: 0.9, default: 0.15 },
   // "One picture" steps: only the step photo, centred in the whole area under the instruction.
   single: { x: 50, y: 170, w: 1170, h: 470 },
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
@@ -236,10 +236,14 @@ export function fit(area, w, h) {
   return { x: area.x + (area.w - fw) / 2, y: area.y + (area.h - fh) / 2, w: fw, h: fh };
 }
 
-// Columns and rows for the parts on the left: 1 part fills the area, more share it.
+// A step uses up to this many different parts; they are stacked in one column on the left.
+export const MAX_STEP_PARTS = 3;
+
+// Columns and rows for the parts on the left: one column of up to 3, each sharing the height.
+// (Older steps with more parts fall back to two columns.)
 export function partsGrid(count) {
-  const cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
-  return { cols, rows: Math.ceil(count / cols) };
+  const cols = count <= MAX_STEP_PARTS ? 1 : count <= 8 ? 2 : 3;
+  return { cols, rows: Math.max(1, Math.ceil(count / cols)) };
 }
 
 /** A step set to "One picture": just the step photo, centred. */
@@ -267,6 +271,18 @@ export function stepAreas(step) {
     parts: { x, y: LAYOUT.parts.y, w: partsW, h: LAYOUT.parts.h },
     photo: { x: x + partsW + gap, y: LAYOUT.photo.y, w: width - partsW, h: LAYOUT.photo.h },
   };
+}
+
+/**
+ * Where the step photo goes. On a normal step it is centred on the slide when that leaves the
+ * part area clear, otherwise as near the centre as it can be; other layouts centre it in its area.
+ */
+export function photoBox(step, photo) {
+  if (isSinglePicture(step)) return fit(LAYOUT.single, photo.w, photo.h);
+  const area = stepAreas(step).photo, box = fit(area, photo.w, photo.h);
+  if (MOVES[step?.move]) return box;
+  const centred = 1280 / 2 - box.w / 2;
+  return { ...box, x: Math.min(area.x + area.w - box.w, Math.max(area.x, centred)) };
 }
 
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
@@ -486,7 +502,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (step.photo) {
       const blob = await getImage(step.photo.id);
       if (blob) {
-        const box = fit(single ? LAYOUT.single : areas.photo, step.photo.w, step.photo.h);
+        const box = photoBox(step, step.photo);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
       }
     }
