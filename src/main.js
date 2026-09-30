@@ -153,15 +153,15 @@ async function detailsDialog(build, { list = isPartsList(build) } = {}) {
   const first = (chosen) => list ? `<option value="" ${chosen ? "" : "selected"}>Not set</option>` : build ? "" : '<option value="" selected disabled>Choose</option>';
   return dialog(`
     <form method="dialog" class="details">
-      <h2>${list ? (build ? "Parts list details" : "New parts list") : build ? "Build details" : "New build"}</h2>
-      <label>${list ? "List name" : "Build name"}<input name="name" required maxlength="${MAX_NAME}" autocomplete="off" placeholder="${list ? "e.g. Tipper Truck parts" : "e.g. Tipper Truck"}" value="${esc(build?.name)}"></label>
+      <h2>${list ? (build ? "BOM details" : "New BOM") : build ? "Build details" : "New build"}</h2>
+      <label>${list ? "BOM name" : "Build name"}<input name="name" required maxlength="${MAX_NAME}" autocomplete="off" placeholder="${list ? "e.g. Tipper Truck parts" : "e.g. Tipper Truck"}" value="${esc(build?.name)}"></label>
       <div class="row">
         <label>Grade${list ? " (optional)" : ""}<select name="grade" ${list ? "" : "required"}>${first(build?.grade)}${range(MIN_GRADE, MAX_GRADE, build?.grade)}</select></label>
         <label>Session${list ? " (optional)" : ""}<select name="session" ${list ? "" : "required"}>${first(build?.session)}${range(MIN_SESSION, MAX_SESSION, build?.session)}</select></label>
       </div>
       <label>Parts library<select name="kit" ${build?.steps.some(s => s.parts.length) || build?.bom?.extras?.length ? "disabled" : ""}>${kits.map(k => `<option value="${esc(k.id)}" ${k.id === (build?.kit ?? kits[0].id) ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
       <div class="dialog-actions"><button type="button" class="btn ghost" data-close>Cancel</button>
-      <button class="btn primary">${build ? "Save" : list ? "Start list" : "Start build"}</button></div>
+      <button class="btn primary">${build ? "Save" : list ? "Create BOM" : "Start build"}</button></div>
     </form>`,
   (el, close) => {
     const form = el.querySelector("form");
@@ -182,27 +182,27 @@ async function renderHome() {
   const builds = await listBuilds();
   const names = Object.fromEntries((await loadKits()).map(k => [k.id, k.name]));
   app.innerHTML = `
-    <header class="bar"><div class="brand"><span class="mark"></span><div><h1>BOM Designer</h1><p>Build guides and parts lists</p></div></div></header>
+    <header class="bar"><div class="brand"><span class="mark"></span><div><h1>Build PPT Designer</h1><p>Build guides and BOMs</p></div></div></header>
     <section class="page">
       ${builds.length ? `<ul class="build-list">${builds.map(b => `
         <li class="build-row"><a href="#/build/${esc(b.id)}${isPartsList(b) ? "/bom" : ""}" class="build-card">
-          <strong>${isPartsList(b) ? `<i class="tag">Parts list</i>` : ""}${esc(b.name)}</strong>
+          <strong>${isPartsList(b) ? `<i class="tag">BOM</i>` : ""}${esc(b.name)}</strong>
           <span>${b.grade && b.session ? `Grade ${b.grade} · Session ${b.session} · ` : ""}${esc(names[b.kit] ?? b.kit)}</span>
           <span class="meta">${isPartsList(b)
             ? `${(b.bom?.extras ?? []).length} part${(b.bom?.extras ?? []).length === 1 ? "" : "s"}`
             : `${b.steps.length} step${b.steps.length === 1 ? "" : "s"}`} · edited ${new Date(b.updatedAt).toLocaleDateString()}</span>
         </a><button class="icon-btn delete-build" data-delete="${esc(b.id)}" aria-label="Delete ${esc(b.name)}">🗑</button></li>`).join("")}</ul>`
-      : `<div class="empty"><h2>No builds yet</h2><p>Start a build, photograph each step, pick the parts it uses and write the instruction. Generate Deck makes the PowerPoint.</p><p>Or make a <b>parts list</b>: just the Materials Required slides, with the parts you choose.</p></div>`}
+      : `<div class="empty"><h2>No builds yet</h2><p>Start a build, photograph each step, pick the parts it uses and write the instruction. Generate Deck makes the PowerPoint.</p><p>Or open the <b>BOM Designer</b>: just the Materials Required slides, with the parts you choose.</p></div>`}
       <p class="source-link"><a href="https://github.com/SherlyGuides/build-steps" target="_blank" rel="noopener">Source code</a> · AGPL-3.0</p>
     </section>
     <footer class="actions">
       <button class="btn secondary" id="import">Open file</button>
-      <button class="btn secondary" id="new-list">Parts list</button>
+      <button class="btn secondary" id="new-list">BOM Designer</button>
       <button class="btn primary" id="new">New build</button>
     </footer>`;
   app.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", async () => {
     const build = builds.find(b => b.id === button.dataset.delete);
-    const what = isPartsList(build) ? "parts list" : "build";
+    const what = isPartsList(build) ? "BOM" : "build";
     if (!build || !(await confirmDialog(`Delete this ${what}?`, isPartsList(build)
       ? `"${build.name}" will be removed from this phone. Decks already made are not affected.`
       : `"${build.name}" and its ${build.steps.length} step photo${build.steps.length === 1 ? "" : "s"} will be removed from this phone. Decks already made are not affected. Save a build file first (⋯ → Save build file) if you may want it back.`, "Delete"))) return;
@@ -232,7 +232,7 @@ async function renderHome() {
     if (!file) return;
     try {
       const build = await importBuild(file);
-      toast(isPartsList(build) ? `Parts list "${build.name}" opened.` : `"${build.name}" opened with ${build.steps.length} steps.`);
+      toast(isPartsList(build) ? `BOM "${build.name}" opened.` : `"${build.name}" opened with ${build.steps.length} steps.`);
       location.hash = `#/build/${build.id}${isPartsList(build) ? "/bom" : ""}`;
     } catch (error) { fail(error); }
   });
@@ -380,7 +380,7 @@ async function buildMenu(build) {
     <div class="menu">
       <button class="btn secondary" data-choice="details">${list ? "Edit name, grade, session" : "Edit name, grade, session"}</button>
       <button class="btn secondary" data-choice="export">Save ${list ? "list" : "build"} file (backup / another device)</button>
-      <button class="btn danger-ghost" data-choice="delete">Delete ${list ? "parts list" : "build"}</button>
+      <button class="btn danger-ghost" data-choice="delete">Delete ${list ? "BOM" : "build"}</button>
     </div>
     <div class="dialog-actions"><button class="btn ghost" data-close>Close</button></div>`,
   (el, close) => el.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => close(b.dataset.choice))));
@@ -399,7 +399,7 @@ async function buildMenu(build) {
       await offerFile(blob, buildFileName(build), build.name, list ? "List file ready" : "Build file ready");
     } catch (error) { busy(false); fail(error); }
   } else if (choice === "delete") {
-    if (!(await confirmDialog(`Delete this ${list ? "parts list" : "build"}?`, list ? `"${build.name}" will be removed from this phone. Decks already made are not affected.` : `"${build.name}" and its ${build.steps.length} step photos will be removed from this phone. Decks already made are not affected.`, "Delete"))) return;
+    if (!(await confirmDialog(`Delete this ${list ? "BOM" : "build"}?`, list ? `"${build.name}" will be removed from this phone. Decks already made are not affected.` : `"${build.name}" and its ${build.steps.length} step photos will be removed from this phone. Decks already made are not affected.`, "Delete"))) return;
     build.steps.forEach(s => photoImageIds(s.photo).forEach(forgetPhoto));
     await deleteBuild(build);
     location.hash = "#/";
@@ -493,7 +493,7 @@ async function renderBom(buildId, { picker = false } = {}) {
       <header class="bar">
         <a href="${list ? "#/" : `#/build/${esc(buildId)}`}" class="icon-btn" aria-label="${list ? "All builds" : "Back to steps"}">‹</a>
         <div class="title"><h1>${list ? esc(build.name) : "Materials required"}</h1><p>${list
-          ? `Parts list · ${rows.length} part${rows.length === 1 ? "" : "s"} · ${pieces} piece${pieces === 1 ? "" : "s"}`
+          ? `BOM · ${rows.length} part${rows.length === 1 ? "" : "s"} · ${pieces} piece${pieces === 1 ? "" : "s"}`
           : `${esc(build.name)} · ${pages.length > 1 ? `slides 2–${pages.length + 1}` : "slide 2"}`}</p></div>
         ${list ? `<button class="icon-btn" id="menu" aria-label="List options">⋯</button>` : ""}
       </header>

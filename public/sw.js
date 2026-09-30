@@ -1,6 +1,6 @@
 // Keeps the app usable without a connection once it has been opened.
 // Pages load from the network first (so updates arrive), everything else from the cache first.
-const CACHE = "build-steps-v3";
+const CACHE = "build-steps-v4";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./library/kits.json", "./library/xplorer/parts.json",
   "./slides/bg1.jpg", "./slides/bg2.jpg", "./slides/bg3.jpg", "./slides/flip.svg", "./slides/turn.svg", "./icon-192.png"];
 

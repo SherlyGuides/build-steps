@@ -41,7 +41,7 @@ a { color: inherit; text-decoration: none; }
 .bar h1 small { font-weight: 500; opacity: .8; font-size: 15px; }
 .bar p { font-size: 13px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand { display: flex; align-items: center; gap: 12px; padding-left: 4px; }
-.mark { width: 34px; height: 34px; border-radius: 9px; background: #fff url(../slides/flip.svg) center/80% no-repeat; }
+.mark { width: 34px; height: 34px; border-radius: 9px; background: #fff url(../icon-192.png) center/cover no-repeat; }
 .nav-steps { display: flex; gap: 4px; }
 
 .icon-btn {
