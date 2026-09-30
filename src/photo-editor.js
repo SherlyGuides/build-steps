@@ -6,7 +6,8 @@
 //   rotate: 0 | 90 | 180 | 270, flip: bool, straighten: -15..15 (degrees),
 //   crop: { x, y, w, h } (0–1, in the rotated picture) | null,
 //   adjust: { brightness, contrast, saturation, warmth, whites, sharpen, lo, hi },
-//   marks: [{ type: "arrow" | "circle" | "box", color, x1, y1, x2, y2 }] (0–1, in the original),
+//   marks: [{ type: "arrow" | "circle" | "box", color, size, x1, y1, x2, y2 }] (0–1, in the original;
+//          size is the line thickness, 1 = normal),
 //   cutout: { bg: "#FFFFFF", edge: -50..50 } | null   background removed; the mask is stored beside
 // }                                                   the photo (a PNG whose alpha is the subject)
 
@@ -39,6 +40,7 @@ const SLIDERS = [
 ];
 const COLORS = ["#FF2D2D", "#FFD400", "#1E7BFF", "#FFFFFF"];
 const BRUSHES = [{ id: "", label: "Off" }, { id: "erase", label: "🧽 Erase" }, { id: "restore", label: "🖌 Restore" }];
+const THICKNESS = [{ size: 0.6, label: "Thin" }, { size: 1, label: "Normal" }, { size: 1.6, label: "Thick" }, { size: 2.4, label: "Extra thick" }];
 const TOOLS = [{ id: "arrow", label: "➚ Arrow" }, { id: "circle", label: "◯ Circle" }, { id: "box", label: "▢ Box" }];
 
 // ---------------------------------------------------------------------------
@@ -178,7 +180,7 @@ function applyAdjust(ctx, width, height, a) {
 function drawMark(ctx, mark, T, ow, oh, size) {
   const p1 = T.transformPoint(new DOMPoint(mark.x1 * ow, mark.y1 * oh));
   const p2 = T.transformPoint(new DOMPoint(mark.x2 * ow, mark.y2 * oh));
-  const w = Math.max(3, size * 0.011);
+  const w = Math.max(2, size * 0.011 * (mark.size ?? 1));
   const light = mark.color === "#FFFFFF" || mark.color === "#FFD400";
   const outline = light ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.9)";
   const path = () => {
@@ -262,7 +264,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
   const maskHistory = [];
   const history = [];
   let tab = "crop", slider = "brightness", tool = "arrow", color = COLORS[0], aspect = "free";
-  let brush = "", brushSize = 30, highlight = false, working = false;
+  let brush = "", brushSize = 30, highlight = false, working = false, thickness = 1;
 
   const root = document.createElement("div");
   root.className = "pe";
@@ -310,6 +312,14 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
     canvas.width = out.canvas.width; canvas.height = out.canvas.height;
     ctx.drawImage(out.canvas, 0, 0);
     if (drawing) drawMark(ctx, drawing, out.T, out.ow, out.oh, Math.max(canvas.width, canvas.height));
+    if (tab === "mark" && selected != null && e.marks[selected]) {
+      const r = handleRadius();
+      for (const pt of markPoints(e.marks[selected])) {
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#fff"; ctx.fill();
+        ctx.lineWidth = Math.max(2, r * 0.35); ctx.strokeStyle = "#1B242D"; ctx.stroke();
+      }
+    }
     const scale = Math.min((box.width - 24) / canvas.width, (box.height - 24) / canvas.height);
     wrap.style.width = `${canvas.width * scale}px`;
     wrap.style.height = `${canvas.height * scale}px`;
@@ -418,29 +428,98 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
   canvas.addEventListener("pointerup", endPaint);
   canvas.addEventListener("pointercancel", endPaint);
 
+  // ----- marks: draw, then select to resize, move, recolour or delete -----
+  let selected = null, grab = null;   // grab: { kind: "p1" | "p2" | "move", start, from, moved }
+  const toCanvas = ev => {
+    const rect = canvas.getBoundingClientRect();
+    return { x: ((ev.clientX - rect.left) / rect.width) * canvas.width, y: ((ev.clientY - rect.top) / rect.height) * canvas.height };
+  };
+  const handleRadius = () => Math.max(canvas.width, canvas.height) * 0.016;
+  const markPoints = m => [
+    view.T.transformPoint(new DOMPoint(m.x1 * view.ow, m.y1 * view.oh)),
+    view.T.transformPoint(new DOMPoint(m.x2 * view.ow, m.y2 * view.oh)),
+  ];
+  const segDistance = (p, a, b) => {
+    const dx = b.x - a.x, dy = b.y - a.y, len = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  };
+  /** Index of the mark under a canvas point (last drawn wins), or null. */
+  const markAt = cp => {
+    const reach = Math.max(canvas.width, canvas.height) * 0.03;
+    for (let i = e.marks.length - 1; i >= 0; i--) {
+      const m = e.marks[i], [a, b] = markPoints(m);
+      if (m.type === "arrow") { if (segDistance(cp, a, b) < reach) return i; continue; }
+      const x0 = Math.min(a.x, b.x) - reach, x1 = Math.max(a.x, b.x) + reach, y0 = Math.min(a.y, b.y) - reach, y1 = Math.max(a.y, b.y) + reach;
+      if (cp.x >= x0 && cp.x <= x1 && cp.y >= y0 && cp.y <= y1) return i;
+    }
+    return null;
+  };
+  const select = i => { selected = i; drawPanel(); redraw(); };
+
   canvas.addEventListener("pointerdown", ev => {
-    if (tab !== "mark") return;
+    if (tab !== "mark" || !view) return;   // nothing drawn yet
     ev.preventDefault();
-    const p = toOriginal(ev);
-    drawing = { type: tool, color, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
+    const cp = toCanvas(ev), p = toOriginal(ev);
+    // A handle of the selected mark: resize / re-aim it.
+    if (selected != null && e.marks[selected]) {
+      const [a, b] = markPoints(e.marks[selected]), r = handleRadius() * 2;
+      const kind = Math.hypot(cp.x - b.x, cp.y - b.y) < r ? "p2" : Math.hypot(cp.x - a.x, cp.y - a.y) < r ? "p1" : null;
+      if (kind) { snapshot(); grab = { kind, moved: false }; canvas.setPointerCapture(ev.pointerId); return; }
+    }
+    // An existing mark: select it and start moving it.
+    const hit = markAt(cp);
+    if (hit != null) {
+      snapshot();
+      grab = { kind: "move", start: p, from: { ...e.marks[hit] }, moved: false };
+      select(hit);
+      canvas.setPointerCapture(ev.pointerId);
+      return;
+    }
+    // Empty space: draw a new mark.
+    selected = null;
+    drawing = { type: tool, color, size: thickness, x1: p.x, y1: p.y, x2: p.x, y2: p.y };
     canvas.setPointerCapture(ev.pointerId);
   });
   canvas.addEventListener("pointermove", ev => {
-    if (!drawing) return;
+    if (tab !== "mark" || !view) return;
     const p = toOriginal(ev);
+    if (grab && selected != null) {
+      const m = e.marks[selected];
+      if (grab.kind === "p1") { m.x1 = p.x; m.y1 = p.y; }
+      else if (grab.kind === "p2") { m.x2 = p.x; m.y2 = p.y; }
+      else {
+        const dx = p.x - grab.start.x, dy = p.y - grab.start.y;
+        m.x1 = grab.from.x1 + dx; m.y1 = grab.from.y1 + dy; m.x2 = grab.from.x2 + dx; m.y2 = grab.from.y2 + dy;
+      }
+      grab.moved = true;
+      redraw();
+      return;
+    }
+    if (!drawing) return;
     drawing.x2 = p.x; drawing.y2 = p.y;
     redraw();
   });
   const finishMark = () => {
+    if (grab) {
+      if (!grab.moved) history.pop(), updateUndo();   // a plain tap only selects: nothing to undo
+      grab = null;
+      drawPanel(); redraw();
+      return;
+    }
     if (!drawing) return;
     const mark = drawing;
     drawing = null;
-    const a = view.T.transformPoint(new DOMPoint(mark.x1 * view.ow, mark.y1 * view.oh)), b = view.T.transformPoint(new DOMPoint(mark.x2 * view.ow, mark.y2 * view.oh));
-    if (Math.hypot(a.x - b.x, a.y - b.y) > Math.max(canvas.width, canvas.height) * 0.03) { snapshot(); e.marks.push(mark); drawPanel(); }
-    redraw();
+    const [a, b] = markPoints(mark);
+    if (Math.hypot(a.x - b.x, a.y - b.y) > Math.max(canvas.width, canvas.height) * 0.03) {
+      snapshot();
+      e.marks.push(mark);
+      selected = e.marks.length - 1;   // stays selected, so it can be adjusted straight away
+    }
+    drawPanel(); redraw();
   };
   canvas.addEventListener("pointerup", finishMark);
-  canvas.addEventListener("pointercancel", () => { drawing = null; redraw(); });
+  canvas.addEventListener("pointercancel", () => { drawing = null; grab = null; redraw(); });
 
   // ----- panels -----
   function drawPanel() {
@@ -484,14 +563,23 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
           <input type="range" min="${s.min}" max="${s.max}" step="1" value="${e.adjust[s.key]}" data-range="${s.key}"></label>
         <div class="pe-row end"><button class="pe-text small" data-act="resetadjust" ${neutral(e.adjust) ? "disabled" : ""}>Reset adjustments</button></div>`;
     } else {
+      const sel = selected != null ? e.marks[selected] : null;
       panel.innerHTML = `
-        <div class="pe-chips">${TOOLS.map(t => `<button class="pe-chip ${t.id === tool ? "on" : ""}" data-tool="${t.id}">${t.label}</button>`).join("")}</div>
+        ${sel ? `<div class="pe-selected"><b>Selected ${TOOLS.find(t => t.id === sel.type).label.replace(/^\S+\s/, "").toLowerCase()}</b>
+          <button class="pe-text small" data-act="deselect">Done</button></div>` : `
+        <div class="pe-chips">${TOOLS.map(t => `<button class="pe-chip ${t.id === tool ? "on" : ""}" data-tool="${t.id}">${t.label}</button>`).join("")}</div>`}
         <div class="pe-row">
-          <span class="pe-colors">${COLORS.map(c => `<button class="pe-color ${c === color ? "on" : ""}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join("")}</span>
-          <button class="pe-text small" data-act="unmark" ${e.marks.length ? "" : "disabled"}>Undo mark</button>
-          <button class="pe-text small" data-act="clearmarks" ${e.marks.length ? "" : "disabled"}>Clear</button>
+          <span class="pe-colors">${COLORS.map(c => `<button class="pe-color ${c === (sel ? sel.color : color) ? "on" : ""}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join("")}</span>
         </div>
-        <p class="pe-hint">Drag on the photo to draw ${tool === "arrow" ? "an arrow (from tail to tip)" : tool === "circle" ? "a circle" : "a box"}.</p>`;
+        <div class="pe-chips">${THICKNESS.map(t => `<button class="pe-chip ${t.size === (sel ? sel.size ?? 1 : thickness) ? "on" : ""}" data-thickness="${t.size}">${t.label}</button>`).join("")}</div>
+        <div class="pe-row">
+          ${sel ? `<button class="pe-text small danger" data-act="deletemark">🗑 Delete this mark</button>` : `
+          <button class="pe-text small" data-act="unmark" ${e.marks.length ? "" : "disabled"}>Undo mark</button>
+          <button class="pe-text small" data-act="clearmarks" ${e.marks.length ? "" : "disabled"}>Clear all</button>`}
+        </div>
+        <p class="pe-hint">${sel
+          ? "Drag the round handles to resize or re-aim it, drag the mark to move it. Tap empty space to draw another."
+          : `Drag on the photo to draw ${tool === "arrow" ? "an arrow (from tail to tip)" : tool === "circle" ? "a circle" : "a box"}. Tap a mark to change it.`}</p>`;
     }
   }
 
@@ -516,11 +604,22 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
       const b = ev.target.closest("button");
       if (!b || b.disabled) return;
       const act = b.dataset.act;
-      if (b.dataset.tab) { tab = b.dataset.tab; drawPanel(); redraw(); return; }
+      if (b.dataset.tab) { tab = b.dataset.tab; selected = null; drawPanel(); redraw(); return; }
       if (b.dataset.aspect) { setAspect(b.dataset.aspect); drawPanel(); redraw(); return; }
       if (b.dataset.slider) { slider = b.dataset.slider; drawPanel(); return; }
       if (b.dataset.tool) { tool = b.dataset.tool; drawPanel(); return; }
-      if (b.dataset.color) { color = b.dataset.color; drawPanel(); return; }
+      if (b.dataset.color) {
+        if (selected != null && e.marks[selected]) { snapshot(); e.marks[selected].color = b.dataset.color; redraw(); }
+        else color = b.dataset.color;
+        drawPanel(); return;
+      }
+      if (b.dataset.thickness) {
+        const size = Number(b.dataset.thickness);
+        if (selected != null && e.marks[selected]) { snapshot(); e.marks[selected].size = size; redraw(); }
+        else thickness = size;
+        drawPanel(); return;
+      }
+      if (act === "deselect") { select(null); return; }
       if (b.dataset.brush !== undefined) { brush = b.dataset.brush; drawPanel(); return; }
       if (b.dataset.bg) { snapshot(); e.cutout.bg = b.dataset.bg; drawPanel(); redraw(); return; }
       if (act === "highlight") { highlight = !highlight; drawPanel(); redraw(); return; }
@@ -539,7 +638,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
         const newMask = e.cutout && mask && maskChanged ? await new Promise(r => mask.toBlob(r, "image/png")) : null;
         return resolve({ blob, w: out.width, h: out.height, edits: e, maskBlob: newMask });
       }
-      if (act === "undo") { if (history.length) e = history.pop(); updateUndo(); drawPanel(); redraw(); return; }
+      if (act === "undo") { if (history.length) e = history.pop(); if (selected != null && !e.marks[selected]) selected = null; updateUndo(); drawPanel(); redraw(); return; }
       snapshot();
       if (act === "rotl" || act === "rotr") { e.rotate = (e.rotate + (act === "rotr" ? 90 : 270)) % 360; e.crop = null; aspect = "free"; }
       else if (act === "flip") { e.flip = !e.flip; e.crop = null; }
@@ -549,7 +648,8 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
       else if (act === "reusebg") e.cutout = { bg: "#FFFFFF", edge: 0 };
       else if (act === "resetadjust") e.adjust = { ...NEUTRAL_ADJUST };
       else if (act === "unmark") e.marks.pop();
-      else if (act === "clearmarks") e.marks = [];
+      else if (act === "clearmarks") { e.marks = []; selected = null; }
+      else if (act === "deletemark") { e.marks.splice(selected, 1); selected = null; }
       drawPanel(); redraw();
     });
   });

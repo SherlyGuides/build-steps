@@ -23,13 +23,15 @@ export const LAYOUT = {
     subtitle: { x: 117, y: 340, w: 520, h: 200, size: 28 },
   },
   heading: { x: 40, y: 20, w: 1060, h: 52, size: 32 },
-  instruction: { x: 60, y: 100, w: 1160, h: 64, size: 20 },
+  instruction: { x: 60, y: 92, w: 1160, h: 78, size: 24, minSize: 16 },   // two lines at 24 pt fit above the pictures
   // Step slide: part(s) on the left, step photo on the right. The split is set per step,
   // from ¼ – ¾ (small part, big photo) to ½ – ½; see stepAreas().
   content: { x: 50, right: 1220, gap: 40 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
   split: { min: 0.25, max: 0.5, default: 0.4 },
+  // "One picture" steps: only the step photo, centred in the whole area under the instruction.
+  single: { x: 50, y: 170, w: 1170, h: 470 },
   // Flip / turn steps: before (previous step's photo) and after, the same size.
   moveBefore: { x: 50, y: 175, w: 570, h: 465 },
   moveAfter: { x: 650, y: 175, w: 570, h: 465 },
@@ -160,6 +162,9 @@ export function partsGrid(count) {
   const cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
   return { cols, rows: Math.ceil(count / cols) };
 }
+
+/** A step set to "One picture": just the step photo, centred. */
+export const isSinglePicture = step => step?.layout === "single";
 
 /** The step's share of the width for the part(s), between ¼ and ½. */
 export function stepSplit(step) {
@@ -293,11 +298,22 @@ export async function buildDeck(build, onProgress = () => {}) {
     slide.slideNumber = slideNumber;
     text(slide, stepHeading(index), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
     if (step.instruction.trim()) {
-      text(slide, [{ text: step.instruction.trim(), options: { highlight: HIGHLIGHT_COLOR } }], LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, 14), color: TEXT_COLOR, valign: "top" });
+      text(slide, [{ text: step.instruction.trim(), options: { highlight: HIGHLIGHT_COLOR } }], LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, LAYOUT.instruction.minSize), color: TEXT_COLOR, valign: "top" });
     }
 
     const move = MOVES[step.move];
-    const before = move ? build.steps[index - 1]?.photo : null;
+    const areas = stepAreas(step);
+    // A custom left picture replaces the part pictures (or, on a flip/turn step, the "before" photo).
+    const single = isSinglePicture(step);
+    const left = single ? null : step.leftPhoto;
+    if (left) {
+      const blob = await getImage(left.id);
+      if (blob) {
+        const box = fit(move ? LAYOUT.moveBefore : areas.parts, left.w, left.h);
+        slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: `${stepHeading(index)}: picture` });
+      }
+    }
+    const before = move && !left && !single ? build.steps[index - 1]?.photo : null;
     if (before) {
       const blob = await getImage(before.id);
       if (blob) {
@@ -305,12 +321,17 @@ export async function buildDeck(build, onProgress = () => {}) {
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: `Before: ${stepHeading(index - 1)}` });
       }
     }
-    const parts = MOVES[step.move] ? [] : step.parts.map(p => ({ ...p, part: library.get(p.id) })).filter(p => p.part);
-    const areas = stepAreas(step), names = partNameStyle(step, build);
+    // A part picture edited for this step (p.pic) replaces the library picture on this slide only.
+    const parts = MOVES[step.move] || left || single ? [] : step.parts.map(p => {
+      const part = library.get(p.id);
+      return part && { ...p, part: p.pic ? { ...part, w: p.pic.w, h: p.pic.h } : part };
+    }).filter(Boolean);
+    const names = partNameStyle(step, build);
     const placed = partLayout(parts, names, areas.parts);
-    for (const [i, { part, qty }] of parts.entries()) {
+    for (const [i, { part, qty, pic }] of parts.entries()) {
       const { image, qtyBox, nameBox } = placed[i];
-      const picture = await partPicture(part);
+      const edited = pic && await getImage(pic.id);
+      const picture = edited ? { dataUrl: await blobToDataUrl(edited) } : await partPicture(part);
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
       if (qtyBox) text(slide, `x${qty}`, qtyBox, { fontSize: LAYOUT.quantity.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
       if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
@@ -319,7 +340,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (step.photo) {
       const blob = await getImage(step.photo.id);
       if (blob) {
-        const box = fit(move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h);
+        const box = fit(single ? LAYOUT.single : move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
       }
     }

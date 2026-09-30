@@ -17,9 +17,11 @@ export async function exportBuild(build) {
   const zip = new JSZip();
   zip.file("build.json", JSON.stringify({ format: FORMAT, version: 1, build }, null, 1));
   for (const step of build.steps) {
-    for (const id of photoImageIds(step.photo)) {
-      const blob = await getImage(id);
-      if (blob) zip.file(`photos/${id}${id === step.photo.maskId ? ".png" : ".jpg"}`, blob);
+    for (const photo of [step.photo, step.leftPhoto, ...(step.parts ?? []).map(p => p.pic)]) {
+      for (const id of photoImageIds(photo)) {
+        const blob = await getImage(id);
+        if (blob) zip.file(`photos/${id}${id === photo.maskId ? ".png" : ".jpg"}`, blob);
+      }
     }
   }
   return zip.generateAsync({ type: "blob", mimeType: "application/zip" });
@@ -47,25 +49,36 @@ export async function importBuild(file) {
       await putImage(fresh, new Blob([await entry.async("arraybuffer")], { type }));
       return fresh;
     };
-    const slideId = step.photo && await copy(step.photo.id, "image/jpeg");
-    if (slideId) {
-      const originalId = step.photo.original && (step.photo.original.id === step.photo.id ? slideId : await copy(step.photo.original.id, "image/jpeg"));
-      photo = {
-        ...step.photo, id: slideId,
-        original: originalId ? { ...step.photo.original, id: originalId } : null,
-        maskId: await copy(step.photo.maskId, "image/png"),
+    const copyPhoto = async source => {
+      const slideId = source && await copy(source.id, "image/jpeg");
+      if (!slideId) return null;
+      const originalId = source.original && (source.original.id === source.id ? slideId : await copy(source.original.id, "image/jpeg"));
+      const out = {
+        ...source, id: slideId,
+        original: originalId ? { ...source.original, id: originalId } : null,
+        maskId: await copy(source.maskId, "image/png"),
       };
-      if (!photo.maskId && photo.edits) photo.edits = { ...photo.edits, cutout: null };
+      if (!out.maskId && out.edits) out.edits = { ...out.edits, cutout: null };
+      return out;
+    };
+    photo = await copyPhoto(step.photo);
+    const parts = [];
+    for (const p of Array.isArray(step.parts) ? step.parts : []) {
+      const pic = await copyPhoto(p.pic);
+      parts.push({ id: String(p.id), qty: Math.max(1, Number(p.qty) || 1), ...(pic ? { pic } : {}) });
     }
+    const leftPhoto = await copyPhoto(step.leftPhoto);
     steps.push({
       id: uid(),
       instruction: String(step.instruction ?? ""),
       move: step.move === "flip" || step.move === "turn" ? step.move : null,
-      parts: Array.isArray(step.parts) ? step.parts.map(p => ({ id: String(p.id), qty: Math.max(1, Number(p.qty) || 1) })) : [],
+      parts,
       onto: Array.isArray(step.onto) ? step.onto.map(String).slice(0, 2) : [],
       split: Number.isFinite(Number(step.split)) ? Number(step.split) : undefined,
+      layout: step.layout === "single" ? "single" : undefined,
       partName: step.partName && typeof step.partName === "object" ? { show: !!step.partName.show, size: Number(step.partName.size) || undefined } : undefined,
       photo,
+      leftPhoto,
     });
   }
   const build = { ...source, id: uid(), steps, createdAt: Date.now() };

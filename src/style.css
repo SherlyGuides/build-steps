@@ -435,3 +435,14 @@ body.dropping::after {
 .part-minus { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
 .part-minus i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 1.5px solid var(--rust); color: var(--rust); font-style: normal; font-size: 18px; font-weight: 700; line-height: 1; }
 .part-minus:active i, .part-minus:hover i { background: #FDECEA; }
+
+/* Custom left picture */
+.left-pic { display: grid; gap: 8px; }
+.left-pic h4 { margin: 4px 0 0; font-size: 14px; font-weight: 650; }
+.left-pic h4 span { font-weight: 500; font-size: 12.5px; color: var(--muted); margin-left: 4px; }
+.chosen .name small.edited { display: block; font-size: 12px; color: var(--rust); margin-top: 2px; }
+.chosen .name small.edited .link { font-size: 12px; }
+
+/* Selected mark in the photo editor */
+.pe-selected { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 12px; background: #262B2F; font-size: 14px; }
+.pe-text.danger { color: #FF8A80; }

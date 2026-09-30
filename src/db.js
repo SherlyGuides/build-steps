@@ -1,7 +1,9 @@
 // Builds and their pictures live in the app's IndexedDB, so they survive restarts and can be
 // reopened later to change a picture or an instruction and generate a new deck.
 //   builds: { id, name, grade, session, kit, deckVersion, showPartNames, steps: [...], createdAt, updatedAt }
-//   step:   { id, instruction, move, parts: [{ id, qty }], photo }
+//   step:   { id, instruction, move, parts: [{ id, qty }], photo, leftPhoto }
+//           leftPhoto: optional custom picture for the left side of the slide (same shape as photo)
+//           parts[i].pic: optional edited copy of that part's library picture, for this slide only
 //   photo:  { id, w, h, original: { id, w, h }, edits, maskId } — id is the picture on the slide,
 //           rendered from the original + edits (photo-editor.js); maskId is the background cut-out
 //   images: Blob keyed by id
@@ -48,8 +50,13 @@ export function photoImageIds(photo) {
   return photo ? [...new Set([photo.id, photo.original?.id, photo.maskId].filter(Boolean))] : [];
 }
 
+/** Every stored picture a step uses: its step photo and its custom left picture. */
+export function stepImageIds(step) {
+  return [...photoImageIds(step?.photo), ...photoImageIds(step?.leftPhoto), ...(step?.parts ?? []).flatMap(p => photoImageIds(p.pic))];
+}
+
 export async function deleteBuild(build) {
-  for (const step of build.steps) for (const id of photoImageIds(step.photo)) await deleteImage(id);
+  for (const step of build.steps) for (const id of stepImageIds(step)) await deleteImage(id);
   await run("builds", "readwrite", s => s.delete(build.id));
 }
 
