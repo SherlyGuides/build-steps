@@ -45,7 +45,7 @@ export const LAYOUT = {
   bom: {
     heading: "Materials Required",
     area: { x: 70, y: 98, w: 1140, h: 544 },
-    cols: 4, rows: 3, gap: 16,
+    cols: 4, rows: 3, gap: 16,   // the default grid; each build can choose another (build.bomGrid)
     cardRadius: 0.08, cardBorder: "E6DDCF",
     picturePad: { side: 34, top: 14, bottom: 8 },
     name: { h: 40, size: 12, minSize: 9, pad: 8 },       // up to two lines
@@ -88,8 +88,17 @@ export function bomRows(build, library) {
   return materials(build, library).filter(row => !row.hidden && row.qty > 0);
 }
 
-export function bomPages(rows) {
-  const per = LAYOUT.bom.cols * LAYOUT.bom.rows;
+/** Grid choices for the Materials slides, columns × rows. */
+export const BOM_GRIDS = [[2, 2], [3, 2], [3, 3], [4, 3], [5, 3], [5, 4], [6, 4]].map(([cols, rows]) => ({ cols, rows }));
+
+/** The build's Materials grid, 4 × 3 unless another one was chosen. */
+export function bomGrid(build) {
+  const chosen = BOM_GRIDS.find(g => g.cols === build?.bomGrid?.cols && g.rows === build?.bomGrid?.rows);
+  return chosen ?? { cols: LAYOUT.bom.cols, rows: LAYOUT.bom.rows };
+}
+
+export function bomPages(rows, grid = bomGrid(null)) {
+  const per = grid.cols * grid.rows;
   const pages = [];
   for (let i = 0; i < rows.length; i += per) pages.push(rows.slice(i, i + per));
   return pages;
@@ -100,16 +109,26 @@ export function bomHeading(page, pageCount) {
 }
 
 /** Card, picture, name and count-circle boxes for the i-th part on a Materials slide. */
-export function bomCell(i, part) {
-  const b = LAYOUT.bom, p = b.picturePad;
-  const w = (b.area.w - b.gap * (b.cols - 1)) / b.cols, h = (b.area.h - b.gap * (b.rows - 1)) / b.rows;
-  const card = { x: b.area.x + (i % b.cols) * (w + b.gap), y: b.area.y + Math.floor(i / b.cols) * (h + b.gap), w, h };
-  const name = { x: card.x + b.name.pad, y: card.y + h - b.name.h - 4, w: w - 2 * b.name.pad, h: b.name.h };
-  const picture = fit({ x: card.x + p.side, y: card.y + p.top, w: w - 2 * p.side, h: name.y - p.bottom - (card.y + p.top) }, part.w || 1, part.h || 1);
+export function bomCell(i, part, grid = bomGrid(null)) {
+  const b = LAYOUT.bom, p = b.picturePad, { cols, rows } = grid;
+  const gap = cols * rows > 12 ? 12 : b.gap;
+  const w = (b.area.w - gap * (cols - 1)) / cols, h = (b.area.h - gap * (rows - 1)) / rows;
+  // Padding, name, circle and text scale with the card, relative to the approved 4 × 3 card.
+  const baseW = (b.area.w - b.gap * (b.cols - 1)) / b.cols, baseH = (b.area.h - b.gap * (b.rows - 1)) / b.rows;
+  const k = Math.min(1.7, Math.max(0.62, Math.min(w / baseW, h / baseH)));
+  const card = { x: b.area.x + (i % cols) * (w + gap), y: b.area.y + Math.floor(i / cols) * (h + gap), w, h };
+  const namePad = b.name.pad * k, nameH = b.name.h * k;
+  const name = { x: card.x + namePad, y: card.y + h - nameH - 4 * k, w: w - 2 * namePad, h: nameH };
+  const side = Math.min(p.side * k, w * 0.14), top = p.top * k;
+  const picture = fit({ x: card.x + side, y: card.y + top, w: w - 2 * side, h: name.y - p.bottom * k - (card.y + top) }, part.w || 1, part.h || 1);
   // Circle centred on the picture's top-right corner, kept inside the card.
-  const r = b.badge.d / 2;
-  const cx = Math.min(picture.x + picture.w + 4, card.x + w - r - 6), cy = Math.max(picture.y + 6, card.y + r + 6);
-  return { card, picture, name, badge: { x: cx - r, y: cy - r, w: b.badge.d, h: b.badge.d } };
+  const d = b.badge.d * k, r = d / 2;
+  const cx = Math.min(picture.x + picture.w + 4 * k, card.x + w - r - 6 * k), cy = Math.max(picture.y + 6 * k, card.y + r + 6 * k);
+  return {
+    card, picture, name, badge: { x: cx - r, y: cy - r, w: d, h: d },
+    nameSize: Math.round(b.name.size * k * 2) / 2, nameMin: Math.max(7, b.name.minSize * Math.min(1, k)),
+    badgeSize: Math.round(b.badge.size * k), ring: Math.max(1, b.badge.ring * k),
+  };
 }
 
 const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
@@ -279,7 +298,8 @@ export async function buildDeck(build, onProgress = () => {}) {
   const stepBackground = await background("bg2");
   const slideNumber = { x: IN(LAYOUT.slideNumber.x), y: IN(LAYOUT.slideNumber.y), w: IN(LAYOUT.slideNumber.w), h: IN(LAYOUT.slideNumber.h), fontFace: FONT_NAME, fontSize: LAYOUT.slideNumber.size, color: TEXT_COLOR, align: "right" };
 
-  const pages = bomPages(bomRows(build, library));
+  const grid = bomGrid(build);
+  const pages = bomPages(bomRows(build, library), grid);
   if (partsOnly && !pages.length) throw new Error("Choose at least one part first.");
   for (const [page, rows] of pages.entries()) {
     const slide = pptx.addSlide();
@@ -287,16 +307,16 @@ export async function buildDeck(build, onProgress = () => {}) {
     slide.slideNumber = slideNumber;
     text(slide, bomHeading(page, pages.length), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
     for (const [i, { part, qty }] of rows.entries()) {
-      const cell = bomCell(i, part);
+      const cell = bomCell(i, part, grid);
       const picture = await partPicture(part);
       const b = LAYOUT.bom;
       slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: 0.75 } });
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
-      text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, b.name.size, b.name.minSize), color: TEXT_COLOR, align: "center", valign: "middle" });
+      text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, cell.nameSize, cell.nameMin), color: TEXT_COLOR, align: "center", valign: "middle" });
       slide.addText(String(qty), {
         shape: pptx.ShapeType.ellipse, x: IN(cell.badge.x), y: IN(cell.badge.y), w: IN(cell.badge.w), h: IN(cell.badge.h),
-        fill: { color: RUST_COLOR }, line: { color: "FFFFFF", width: b.badge.ring },
-        fontFace: FONT_NAME, fontSize: qty > 99 ? b.badge.size - 3 : b.badge.size, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0,
+        fill: { color: RUST_COLOR }, line: { color: "FFFFFF", width: cell.ring },
+        fontFace: FONT_NAME, fontSize: qty > 99 ? cell.badgeSize - 3 : cell.badgeSize, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0,
       });
     }
   }

@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { LAYOUT, MOVES, bomCell, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MOVES, bomCell, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -265,13 +265,13 @@ async function renderBuild(buildId) {
     </header>
     <section class="page">
       <a class="bom-card" href="#/build/${esc(build.id)}/bom">
-        <span class="bom-head"><strong>Materials required</strong><span>Slide 2${bomPages(bom).length > 1 ? `–${bomPages(bom).length + 1}` : ""}</span></span>
+        <span class="bom-head"><strong>Materials required</strong><span>Slide 2${bomPages(bom, bomGrid(build)).length > 1 ? `–${bomPages(bom, bomGrid(build)).length + 1}` : ""}</span></span>
         ${bom.length ? `<span class="bom-thumbs">${bom.slice(0, 6).map(r => `<span><img src="${esc(r.part.file)}" alt=""><b>${r.qty}</b></span>`).join("")}${bom.length > 6 ? `<em>+${bom.length - 6}</em>` : ""}</span>
         <span class="meta">${bom.length} part${bom.length === 1 ? "" : "s"} · ${pieces} piece${pieces === 1 ? "" : "s"}${edited ? " · edited" : " · worked out from the steps"}</span>`
         : `<span class="meta">Filled in automatically from the parts you choose in each step.</span>`}
         <span class="bom-edit">Review &amp; edit BOM ›</span>
       </a>
-      <h2 class="section-title">Build steps <span>from slide ${bomPages(bom).length + 2}</span></h2>
+      <h2 class="section-title">Build steps <span>from slide ${bomPages(bom, bomGrid(build)).length + 2}</span></h2>
       ${build.steps.length ? `<ol class="step-list">${build.steps.map((step, i) => {
         const issues = stepIssues(step);
         return `<li class="step-card" data-step="${esc(step.id)}">
@@ -457,16 +457,15 @@ async function generate(build, incomplete) {
 // Review & edit BOM
 // ---------------------------------------------------------------------------
 
-function bomSlidePreview(rows, page, pageCount) {
-  const b = LAYOUT.bom;
+function bomSlidePreview(rows, page, pageCount, grid) {
   return `<div class="slide" aria-label="Materials slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(bomHeading(page, pageCount))}</div>
     ${rows.map(({ part, qty }, i) => {
-      const c = bomCell(i, part);
+      const c = bomCell(i, part, grid);
       return `<div class="s-card" style="${box(c.card)}"></div>
         <img class="s-part" src="${esc(part.file)}" style="${box(c.picture)}" alt="">
-        <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, b.name.size, b.name.minSize))}">${esc(part.name)}</div>
-        <div class="s-badge" style="${box(c.badge)};${fontSize(qty > 99 ? b.badge.size - 3 : b.badge.size)}">${qty}</div>`;
+        <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, c.nameSize, c.nameMin))}">${esc(part.name)}</div>
+        <div class="s-badge" style="${box(c.badge)};${fontSize(qty > 99 ? c.badgeSize - 3 : c.badgeSize)}">${qty}</div>`;
     }).join("")}
     ${rows.length ? "" : `<div class="s-photo-empty" style="${box(LAYOUT.bom.area)}">Parts chosen in the steps appear here</div>`}
   </div>`;
@@ -494,7 +493,8 @@ async function renderBom(buildId, { picker = false } = {}) {
 
   const draw = () => {
     const rows = materials(build, library);
-    const pages = bomPages(rows.filter(r => !r.hidden && r.qty > 0));
+    const grid = bomGrid(build), perSlide = grid.cols * grid.rows;
+    const pages = bomPages(rows.filter(r => !r.hidden && r.qty > 0), grid);
     const pieces = rows.filter(r => !r.hidden).reduce((sum, r) => sum + r.qty, 0);
     app.innerHTML = `
       <header class="bar">
@@ -505,10 +505,14 @@ async function renderBom(buildId, { picker = false } = {}) {
         ${list ? `<button class="icon-btn" id="menu" aria-label="List options">⋯</button>` : ""}
       </header>
       <section class="page editor">
-        <div class="bom-previews">${(pages.length ? pages : [[]]).map((page, i) => bomSlidePreview(page, i, pages.length)).join("")}</div>
+        <div class="bom-previews">${(pages.length ? pages : [[]]).map((page, i) => bomSlidePreview(page, i, pages.length, grid)).join("")}</div>
+        <div class="bom-grid">
+          <h4>Grid <span>columns × rows · parts per slide</span></h4>
+          <div class="grid-chips" role="radiogroup" aria-label="Grid size">${BOM_GRIDS.map(g => `<button role="radio" aria-checked="${g.cols === grid.cols && g.rows === grid.rows}" data-grid="${g.cols}x${g.rows}"><b>${g.cols}×${g.rows}</b><small>${g.cols * g.rows}</small></button>`).join("")}</div>
+        </div>
         <p class="hint">${list
-          ? `The deck has only the Materials Required slide${pages.length > 1 ? "s" : ""}: no cover, steps or closing slide. Choose the parts and how many of each are needed.${pages.length > 1 ? ` More than ${LAYOUT.bom.cols * LAYOUT.bom.rows} parts continue on another slide.` : ""}`
-          : `Quantities are added up from the steps automatically and stay up to date when steps change. Change a number, hide a part or add an extra one here; <b>↺</b> goes back to the automatic count.${pages.length > 1 ? ` More than ${LAYOUT.bom.cols * LAYOUT.bom.rows} parts continue on another Materials slide.` : ""}`}</p>
+          ? `The deck has only the Materials Required slide${pages.length > 1 ? "s" : ""}: no cover, steps or closing slide. Choose the parts and how many of each are needed.${pages.length > 1 ? ` More than ${perSlide} parts continue on another slide.` : ""}`
+          : `Quantities are added up from the steps automatically and stay up to date when steps change. Change a number, hide a part or add an extra one here; <b>↺</b> goes back to the automatic count.${pages.length > 1 ? ` More than ${perSlide} parts continue on another Materials slide.` : ""}`}</p>
         ${rows.length ? `<ul class="chosen bom-rows">${rows.map(r => `
           <li class="${r.hidden ? "hidden-row" : ""}">
             <img src="${esc(r.part.file)}" alt="">
@@ -551,6 +555,12 @@ async function renderBom(buildId, { picker = false } = {}) {
     }));
     app.querySelectorAll("[data-show]").forEach(b => b.addEventListener("click", async () => { setOverride(build, b.dataset.show, { hidden: null }); await saveBuild(build); draw(); }));
     $("#add-extra").addEventListener("click", () => { location.hash = `${here}/parts`; });
+    app.querySelectorAll("[data-grid]").forEach(b => b.addEventListener("click", async () => {
+      const [cols, rows] = b.dataset.grid.split("x").map(Number);
+      build.bomGrid = { cols, rows };
+      await saveBuild(build);
+      draw();
+    }));
     if (list) {
       $("#menu").addEventListener("click", () => buildMenu(build));
       $("#gen-list").addEventListener("click", () => generate(build, 0));
