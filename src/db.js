@@ -1,6 +1,6 @@
 // Builds and their pictures live in the app's IndexedDB, so they survive restarts and can be
 // reopened later to change a picture or an instruction and generate a new deck.
-//   builds: { id, name, grade, session, kit, deckVersion, showPartNames, steps: [...], createdAt, updatedAt }
+//   builds: { id, name, grade, session, kit, deckVersion, steps: [...], createdAt, updatedAt }
 //   step:   { id, instruction, move, parts: [{ id, qty }], photo, leftPhoto }
 //           leftPhoto: optional custom picture for the left side of the slide (same shape as photo)
 //           parts[i].pic: optional edited copy of that part's library picture, for this slide only

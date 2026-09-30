@@ -35,9 +35,9 @@ export const LAYOUT = {
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
   // split (step.beforeSplit) from 10% – 90% to 90% – 10%, equal by default. See stepAreas().
   move: { y: 175, h: 465, defaultSplit: 0.5 },
-  // Part name under the part picture: off unless turned on for the step; up to two lines.
-  partName: { sizes: [16, 20, 24, 28], default: 24, minSize: 12 },
-  quantity: { size: 24 },
+  // Label under each part picture: "Plate 2 x 2 - 2 Pieces" (name grey, count bold rust), up to
+  // two lines; the size is set per step.
+  partName: { sizes: [12, 14, 16, 20], default: 14, minSize: 9 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
   // Materials slide: each part in its own outlined white card, picture centred with a soft shadow under
@@ -286,11 +286,15 @@ export function photoBox(step, photo) {
 }
 
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
-export function partNameStyle(step, build) {
-  const show = step?.partName ? !!step.partName.show : !!build?.showPartNames;
+export function partNameStyle(step) {
   const size = LAYOUT.partName.sizes.includes(step?.partName?.size) ? step.partName.size : LAYOUT.partName.default;
-  return { show, size };
+  return { show: true, size };
 }
+
+// A no-break space keeps "2 Pieces" on one line when the label wraps.
+export const pieceCount = qty => `${qty}\u00A0${qty === 1 ? "Piece" : "Pieces"}`;
+/** The label under a part on a step slide. */
+export const partLabel = (name, qty) => `${name} - ${pieceCount(qty)}`;
 
 export function partCells(count, area = LAYOUT.parts) {
   const { cols, rows } = partsGrid(count);
@@ -300,26 +304,19 @@ export function partCells(count, area = LAYOUT.parts) {
   }));
 }
 
-const QTY_H = 38;
-
 /**
- * Where each part's picture, quantity ("x2") and optional name go. The labels sit directly under
- * the picture, so they stay with it however wide or tall the picture is.
+ * Where each part's picture and its label ("Plate 2 x 2 - 2 Pieces") go. The label sits directly
+ * under the picture, so it stays with it however wide or tall the picture is.
  * parts: [{ part: { w, h, name }, qty }]
  */
 export function partLayout(parts, names, area = LAYOUT.parts) {
   const cells = partCells(parts.length, area);
   // Room for two lines of the chosen size (points -> design pixels, 1.2 line height).
-  const nameH = names.show ? Math.ceil(names.size * 96 / 72 * 1.2 * 2) + 4 : 0;
-  return parts.map(({ part, qty }, i) => {
+  const labelH = Math.ceil(names.size * 96 / 72 * 1.2 * 2) + 4;
+  return parts.map(({ part }, i) => {
     const cell = cells[i];
-    const below = (qty > 1 ? QTY_H : 0) + nameH;
-    const image = fit({ ...cell, h: cell.h - below }, part.w || 1, part.h || 1);
-    let y = image.y + image.h;
-    const qtyBox = qty > 1 ? { x: cell.x, y, w: cell.w, h: QTY_H } : null;
-    if (qtyBox) y += QTY_H;
-    const nameBox = names.show ? { x: cell.x, y, w: cell.w, h: nameH } : null;
-    return { image, qtyBox, nameBox };
+    const image = fit({ ...cell, h: cell.h - labelH }, part.w || 1, part.h || 1);
+    return { image, labelBox: { x: cell.x, y: image.y + image.h + 2, w: cell.w, h: labelH } };
   });
 }
 
@@ -491,12 +488,11 @@ export async function buildDeck(build, onProgress = () => {}) {
     const names = partNameStyle(step, build);
     const placed = partLayout(parts, names, areas.parts);
     for (const [i, { part, qty, pic }] of parts.entries()) {
-      const { image, qtyBox, nameBox } = placed[i];
+      const { image, labelBox } = placed[i];
       const edited = pic && await getImage(pic.id);
       const picture = edited ? { dataUrl: await blobToDataUrl(edited) } : await partPicture(part);
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
-      if (qtyBox) text(slide, `x${qty}`, qtyBox, { fontSize: LAYOUT.quantity.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
-      if (nameBox) text(slide, part.name, nameBox, { fontSize: fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
+      text(slide, [{ text: `${part.name} - ` }, { text: pieceCount(qty), options: { bold: true, color: RUST_COLOR } }], labelBox, { fontSize: fittedSize(partLabel(part.name, qty), labelBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
     }
 
     if (step.photo) {

@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MAX_STEP_PARTS, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MAX_STEP_PARTS, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, partLabel, pieceCount, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -680,10 +680,9 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
     ${move && !left && !single ? (beforeSrc ? `<img class="s-photo" src="${beforeSrc}" style="${box(fit(areas.parts, build.steps[index - 1].photo.w, build.steps[index - 1].photo.h))}" alt="">`
       : `<div class="s-photo-empty" style="${box(areas.parts)}">${index ? "Previous step has no photo" : "Before"}</div>`) : ""}
     ${parts.map(({ part, qty }, i) => {
-      const { image, qtyBox, nameBox } = placed[i];
+      const { image, labelBox } = placed[i];
       return `<img class="s-part" src="${esc(part.file)}" style="${box(image)}" alt="">
-        ${qtyBox ? `<div class="s-qty" style="${box(qtyBox)};${fontSize(LAYOUT.quantity.size)}">x${qty}</div>` : ""}
-        ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
+        <div class="s-name" style="${box(labelBox)};${fontSize(fittedSize(partLabel(part.name, qty), labelBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)} - <b>${pieceCount(qty)}</b></div>`;
     }).join("")}
     ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(photoBox(step, step.photo))}" alt="">`
       : `<div class="s-photo-empty" style="${box(single ? LAYOUT.single : areas.photo)}">${move && !single ? "Photo after the move" : "Step photo"}</div>`}
@@ -767,8 +766,8 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
           <div id="ai-out" class="ai-out" aria-live="polite"></div>
           ${MOVES[step.move] ? "" : `
-          <label class="switch"><input type="checkbox" id="pn-show" ${partNameStyle(step, build).show ? "checked" : ""}><span></span> Show part name under the picture</label>
-          <div class="pe-size ${partNameStyle(step, build).show ? "" : "off"}" id="pn-sizes" role="radiogroup" aria-label="Part name size">
+          <p class="hint">Under each part: its name and how many pieces, e.g. "Plate 2 x 2 - 2 Pieces". Label size:</p>
+          <div class="pe-size" id="pn-sizes" role="radiogroup" aria-label="Part label size">
             ${LAYOUT.partName.sizes.map((pt, i) => `<button role="radio" aria-checked="${partNameStyle(step, build).size === pt}" data-pn-size="${pt}">${["Small", "Medium", "Large", "Extra large"][i]} <small>${pt} pt</small></button>`).join("")}
           </div>`}
         </div>
@@ -935,21 +934,14 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       });
       $("#split").addEventListener("change", () => save());
       $("#layout-all")?.addEventListener("click", async () => {
-        if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split${partNameStyle(step, build).show ? ` and part names at ${partNameStyle(step, build).size} pt` : " and no part names"}.`, "Apply to all", false))) return;
+        if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split and part labels at ${partNameStyle(step, build).size} pt.`, "Apply to all", false))) return;
         for (const other of build.steps) { other.split = step.split; other.partName = { ...partNameStyle(step, build) }; }
         await save();
         toast("Layout applied to all steps.");
       });
     }
-    $("#pn-show")?.addEventListener("change", async e => {
-      step.partName = { ...partNameStyle(step, build), show: e.target.checked };
-      $("#pn-sizes").classList.toggle("off", !e.target.checked);
-      await save(); refreshPreview();
-    });
     app.querySelectorAll("[data-pn-size]").forEach(b => b.addEventListener("click", async () => {
       step.partName = { show: true, size: Number(b.dataset.pnSize) };
-      $("#pn-show").checked = true;
-      $("#pn-sizes").classList.remove("off");
       app.querySelectorAll("[data-pn-size]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
       await save(); refreshPreview();
     }));
