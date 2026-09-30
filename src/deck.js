@@ -29,7 +29,7 @@ export const LAYOUT = {
   content: { x: 50, right: 1220, gap: 40 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
-  split: { min: 0.1, max: 0.9, default: 0.15 },
+  split: { min: 0.1, max: 0.9, default: 0.2 },
   // "One picture" steps: only the step photo, centred in the whole area under the instruction.
   single: { x: 50, y: 170, w: 1170, h: 470 },
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
@@ -274,15 +274,14 @@ export function stepAreas(step) {
 }
 
 /**
- * Where the step photo goes. On a normal step it is centred on the slide when that leaves the
- * part area clear, otherwise as near the centre as it can be; other layouts centre it in its area.
+ * Where the step photo goes. On a normal step it fills its area (the right 80% by default) as far
+ * as its shape allows and sits against the right margin; other layouts centre it in their area.
  */
 export function photoBox(step, photo) {
   if (isSinglePicture(step)) return fit(LAYOUT.single, photo.w, photo.h);
   const area = stepAreas(step).photo, box = fit(area, photo.w, photo.h);
   if (MOVES[step?.move]) return box;
-  const centred = 1280 / 2 - box.w / 2;
-  return { ...box, x: Math.min(area.x + area.w - box.w, Math.max(area.x, centred)) };
+  return { ...box, x: area.x + area.w - box.w };
 }
 
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
