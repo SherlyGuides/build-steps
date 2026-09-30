@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MOVES, bomCell, countLabel, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MOVES, bomCell, countLabel, namedPart, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -479,6 +479,30 @@ function bomSlidePreview(rows, page, pageCount, grid) {
   </div>`;
 }
 
+/** Ask for a part's name in this build. Resolves to the new name, "" for the library name, or null. */
+function renameDialog(part) {
+  const renamed = part.name !== part.libraryName;
+  return dialog(`
+    <form method="dialog" class="details">
+      <h2>Rename part</h2>
+      <p class="hint">Changes the name on this build's slides only. The parts library keeps "${esc(part.libraryName)}".</p>
+      <label>Name<input name="name" required maxlength="80" autocomplete="off" value="${esc(part.name)}"></label>
+      <div class="dialog-actions">${renamed ? `<button type="button" class="btn ghost" data-library>Use library name</button>` : ""}
+      <button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Save</button></div>
+    </form>`,
+  (el, close) => {
+    const form = el.querySelector("form");
+    el.querySelector("[data-library]")?.addEventListener("click", () => close(""));
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const name = form.name.value.replace(/\s+/g, " ").trim();
+      if (!name) { form.name.focus(); return; }
+      close(name);
+    });
+    requestAnimationFrame(() => form.name.select());
+  });
+}
+
 function setOverride(build, id, change) {
   build.bom = { overrides: { ...build.bom?.overrides }, extras: [...(build.bom?.extras ?? [])] };
   const next = { ...build.bom.overrides[id], ...change };
@@ -524,7 +548,8 @@ async function renderBom(buildId, { picker = false } = {}) {
         ${rows.length ? `<ul class="chosen bom-rows">${rows.map(r => `
           <li class="${r.hidden ? "hidden-row" : ""}">
             <img src="${esc(r.part.file)}" alt="">
-            <span class="name">${esc(r.part.name)}
+            <span class="name"><button class="rename" data-rename="${esc(r.id)}" aria-label="Rename ${esc(r.part.name)}">${esc(r.part.name)} <i>✎</i></button>
+              ${r.part.name !== r.part.libraryName ? `<small>Library name: ${esc(r.part.libraryName)}</small>` : ""}
               ${list ? "" : `<small>${r.extra ? "Extra part, not in any step" : r.edited ? `Automatic: ${r.auto}` : `From the steps: ${r.auto}`}${r.hidden ? " · hidden" : ""}</small>`}
             </span>
             ${r.hidden ? `<button class="btn secondary compact" data-show="${esc(r.id)}">Show</button>` : `
@@ -562,6 +587,16 @@ async function renderBom(buildId, { picker = false } = {}) {
       draw();
     }));
     app.querySelectorAll("[data-show]").forEach(b => b.addEventListener("click", async () => { setOverride(build, b.dataset.show, { hidden: null }); await saveBuild(build); draw(); }));
+    app.querySelectorAll("[data-rename]").forEach(b => b.addEventListener("click", async () => {
+      const part = row(b.dataset.rename).part;
+      const name = await renameDialog(part);
+      if (name == null) return;
+      const names = { ...build.partNames };
+      if (name && name !== part.libraryName) names[part.id] = name; else delete names[part.id];
+      build.partNames = names;
+      await saveBuild(build);
+      draw();
+    }));
     $("#add-extra").addEventListener("click", () => { location.hash = `${here}/parts`; });
     app.querySelectorAll("[data-grid]").forEach(b => b.addEventListener("click", async () => {
       const [cols, rows] = b.dataset.grid.split("x").map(Number);
@@ -621,7 +656,7 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
   const left = single ? null : step.leftPhoto;
   // A part picture edited for this step replaces the library picture on this slide only.
   const parts = move || left || single ? [] : step.parts.map(p => {
-    const part = library.get(p.id);
+    const part = namedPart(build, library.get(p.id));
     if (!part) return null;
     return { ...p, part: p.pic && picSrcs[p.id] ? { ...part, file: picSrcs[p.id], w: p.pic.w, h: p.pic.h } : part };
   }).filter(Boolean);
@@ -796,7 +831,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       button.disabled = true;
       out.innerHTML = `<p class="hint">Asking the AI…</p>`;
       try {
-        const named = parts => parts.map(p => ({ name: library.get(p.id)?.name ?? "", qty: p.qty })).filter(p => p.name);
+        const named = parts => parts.map(p => ({ name: namedPart(build, library.get(p.id))?.name ?? "", qty: p.qty })).filter(p => p.name);
         const suggestions = await suggestInstructions({
           instruction: step.instruction,
           parts: MOVES[step.move] ? [] : named(step.parts),
@@ -805,7 +840,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           step: index + 1,
           // What is already built, so the AI can say which part the new one goes onto.
           history: build.steps.slice(Math.max(0, index - 8), index).map((s, i, list) => ({ step: index - list.length + i + 1, parts: named(s.parts), move: s.move })),
-          onto: MOVES[step.move] ? [] : (step.onto ?? []).map(id => library.get(id)?.name).filter(Boolean),
+          onto: MOVES[step.move] ? [] : (step.onto ?? []).map(id => namedPart(build, library.get(id))?.name).filter(Boolean),
           photo: step.photo ? await getImage(step.photo.id) : null,
         });
         out.innerHTML = `${suggestions.map((s, i) => `<button class="ai-card" data-ai="${i}"><b>${esc(s.label)}</b>${esc(s.text)}</button>`).join("")}

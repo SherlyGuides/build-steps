@@ -40,14 +40,14 @@ export const LAYOUT = {
   quantity: { size: 24 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
-  // Materials slide: white cards on a light cream page, picture centred with a soft shadow under
+  // Materials slide: each part in its own outlined white card, picture centred with a soft shadow under
   // it, part name below, and a light orange "x 3" label in the card's top-right corner.
   bom: {
     heading: "Materials Required",
-    background: "bg2-warm",
+    background: "bg2",
     area: { x: 70, y: 98, w: 1140, h: 544 },
     cols: 4, rows: 3, gap: 16,   // the default grid; each build can choose another (build.bomGrid)
-    cardRadius: 0.08, cardBorder: "E6DDCF",
+    cardRadius: 0.08, cardBorder: "C9B8A3", cardLine: 1.25,
     picturePad: { side: 30, top: 26, bottom: 10 },
     name: { h: 40, size: 12, minSize: 9, pad: 8 },       // up to two lines
     count: { h: 32, pad: 11, inset: 8, size: 14, color: "F0965F" },
@@ -63,7 +63,14 @@ export const LAYOUT = {
 // the parts are first used. build.bom holds only the user's changes on top of that:
 //   overrides: { [partId]: { qty?: number, hidden?: true } }   extras: [{ id, qty }]
 // so the list keeps updating by itself as steps change.
+// build.partNames: { [partId]: name } renames a part in this build only (Materials and step slides).
 // =============================================================================
+
+/** The part as this build names it: the user's name if they renamed it, else the library name. */
+export function namedPart(build, part) {
+  const custom = part && build?.partNames?.[part.id]?.trim();
+  return part && { ...part, name: custom || part.name, libraryName: part.name };
+}
 
 export function bomEdits(build) {
   return { overrides: build.bom?.overrides ?? {}, extras: build.bom?.extras ?? [] };
@@ -83,7 +90,7 @@ export function materials(build, library) {
     const edit = overrides[row.id] ?? {};
     const base = row.extra ? row.extraQty : row.auto;
     const qty = edit.qty ?? base;
-    return { id: row.id, part: library.get(row.id), auto: row.auto, qty, edited: !row.extra && edit.qty != null && edit.qty !== row.auto, hidden: !!edit.hidden, extra: row.extra };
+    return { id: row.id, part: namedPart(build, library.get(row.id)), auto: row.auto, qty, edited: !row.extra && edit.qty != null && edit.qty !== row.auto, hidden: !!edit.hidden, extra: row.extra };
   }).filter(row => row.part);
 }
 
@@ -363,7 +370,7 @@ export async function buildDeck(build, onProgress = () => {}) {
       const cell = bomCell(i, part, grid, qty);
       const picture = await shadowedPicture(part);
       const b = LAYOUT.bom;
-      slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: 0.75 } });
+      slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: b.cardLine } });
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
       text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, cell.nameSize, cell.nameMin), color: TEXT_COLOR, align: "center", valign: "middle" });
       slide.addText(countLabel(qty), {
@@ -404,7 +411,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     }
     // A part picture edited for this step (p.pic) replaces the library picture on this slide only.
     const parts = MOVES[step.move] || left || single ? [] : step.parts.map(p => {
-      const part = library.get(p.id);
+      const part = namedPart(build, library.get(p.id));
       return part && { ...p, part: p.pic ? { ...part, w: p.pic.w, h: p.pic.h } : part };
     }).filter(Boolean);
     const names = partNameStyle(step, build);

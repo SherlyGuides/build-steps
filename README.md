@@ -9,11 +9,11 @@ A phone-first web app for making ThinkPro **build instruction decks** (PowerPoin
 3. **Materials required** (the BOM) fills itself in from the parts chosen in the steps, with quantities added up. **Review & edit BOM** lets you change a quantity, hide a part or add an extra part that is not in any step. Edits sit on top of the automatic list, so it keeps updating as steps change, and ↺ returns a part to its automatic count.
 4. **Generate deck** makes `<Build>_G<grade>_S<session>_v<n>.pptx`:
    - slide 1: cover with the build name, grade and session
-   - slide 2: **Materials Required**, 3 rows × 4 columns of white part cards on a light cream page: picture with a soft shadow under it, name below it, and a light orange "x 3" count label in the card's corner (a 13th part continues on another Materials slide)
+   - slide 2: **Materials Required**, 3 rows × 4 columns of white part cards, each outlined in its own box: picture with a soft shadow under it, name below it, and a light orange "x 3" count label in the card's corner (a 13th part continues on another Materials slide)
    - from slide 3: one slide per step, with "Step N" on the red bar, the instruction highlighted in yellow, the part(s) on the left and the step photo on the right. Per step you can turn on the part name under the picture (16–28 pt, off by default) and set the part/photo split with a slider from 10% – 90% to 90% – 10%; new steps copy the previous step's settings, and "Use this layout for all steps" applies them everywhere. The photo editor's "Slide" crop matches the step's photo area, so a wider split gets a wider photo
    - last slide: Thank You
 
-**Materials grid:** on the Materials screen of a build or a BOM Designer list, choose the grid (2×2, 3×2, 3×3, 4×3, 5×3, 5×4 or 6×4, i.e. 4 to 24 parts per slide); cards, pictures, names and count labels scale to fit.
+**Materials grid:** on the Materials screen of a build or a BOM Designer list, choose the grid (2×2, 3×2, 3×3, 4×3, 5×3, 5×4 or 6×4, i.e. 4 to 24 parts per slide); cards, pictures, names and count labels scale to fit. Tap a part's name (✎) to rename it for that build only; the new name is used on the Materials and step slides, and "Use library name" undoes it.
 
 **Per step, on the slide:** a **custom left picture** (replaces the part pictures, or the before photo on a flip/turn step), a **One picture, centred** layout (just the step photo), and **✏️ edit a part's picture** (mirror, rotate, crop, marks…) for that slide only; the BOM keeps the library picture. In the photo editor, arrows, circles and boxes stay editable: tap one to resize it with its handles, move it, or change its colour and thickness. Step instructions are 24 pt.
 

@@ -243,12 +243,14 @@ button, a, .part, .step-open { touch-action: manipulation; user-select: none; -w
 .section-title span { text-transform: none; letter-spacing: 0; font-weight: 500; }
 
 .bom-previews { display: grid; gap: 12px; }
-.s-card { background: #fff; border: 1px solid #E6DDCF; border-radius: 1cqw; }
+.s-card { background: #fff; border: max(1px, .13cqw) solid #C9B8A3; border-radius: 1cqw; }
 .s-bom-name { line-height: 1.15; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; color: #111; }
-.bom-slide { background-image: url(../slides/bg2-warm.jpg); }
 .s-shadow { background: radial-gradient(closest-side, rgb(70 50 30 / .3), rgb(70 50 30 / .135) 55%, rgb(70 50 30 / 0)); }
 .s-bom-part { mix-blend-mode: multiply; }
 .s-count { display: grid; place-items: center; border-radius: 999px; background: #F0965F; color: #fff; font-weight: 700; line-height: 1; white-space: nowrap; }
+.bom-rows .rename { all: unset; cursor: pointer; overflow-wrap: anywhere; }
+.bom-rows .rename i { font-style: normal; color: var(--rust); font-size: 13px; margin-left: 2px; }
+.bom-rows .rename:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; border-radius: 4px; }
 .bom-rows .name small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .bom-rows .hidden-row { opacity: .55; }
 .bom-rows .hidden-row img { filter: grayscale(1); }
