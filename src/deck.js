@@ -44,7 +44,16 @@ export const LAYOUT = {
   // it, part name below, and a light orange "x 3" label in the card's top-right corner.
   bom: {
     heading: "Materials Required",
-    background: "bg2",
+    // Page behind the cards (build.bomStyle.tint); tinted copies of bg2 below the red bar.
+    tints: [
+      { id: "white", label: "White", background: "bg2", swatch: "#FFFFFF" },
+      { id: "cream", label: "Cream", background: "bg2-cream", swatch: "#FDF6EC" },
+      { id: "sand", label: "Sand", background: "bg2-sand", swatch: "#F8ECDC" },
+      { id: "peach", label: "Peach", background: "bg2-peach", swatch: "#FCEADC" },
+    ],
+    // "Show every piece" (build.bomStyle.pieces): the part drawn once per piece, up to maxCopies;
+    // a part needed more often than that is shown once.
+    maxCopies: 6, copyGap: 0.06,
     area: { x: 70, y: 98, w: 1140, h: 544 },
     cols: 4, rows: 3, gap: 16,   // the default grid; each build can choose another (build.bomGrid)
     cardRadius: 0.08, cardBorder: "C9B8A3", cardLine: 1.25,
@@ -108,6 +117,12 @@ export function bomGrid(build) {
   return chosen ?? { cols: LAYOUT.bom.cols, rows: LAYOUT.bom.rows };
 }
 
+/** Materials slide look for a build: page tint and whether every piece is drawn. */
+export function bomStyle(build) {
+  const tint = LAYOUT.bom.tints.find(t => t.id === build?.bomStyle?.tint) ?? LAYOUT.bom.tints[0];
+  return { tint, pieces: !!build?.bomStyle?.pieces };
+}
+
 export function bomPages(rows, grid = bomGrid(null)) {
   const per = grid.cols * grid.rows;
   const pages = [];
@@ -120,7 +135,7 @@ export function bomHeading(page, pageCount) {
 }
 
 /** Card, picture, name and count-label boxes for the i-th part on a Materials slide. */
-export function bomCell(i, part, grid = bomGrid(null), qty = 1) {
+export function bomCell(i, part, grid = bomGrid(null), qty = 1, pieces = false) {
   const b = LAYOUT.bom, p = b.picturePad, { cols, rows } = grid;
   const gap = cols * rows > 12 ? 12 : b.gap;
   const w = (b.area.w - gap * (cols - 1)) / cols, h = (b.area.h - gap * (rows - 1)) / rows;
@@ -130,21 +145,46 @@ export function bomCell(i, part, grid = bomGrid(null), qty = 1) {
   const card = { x: b.area.x + (i % cols) * (w + gap), y: b.area.y + Math.floor(i / cols) * (h + gap), w, h };
   const namePad = b.name.pad * k, nameH = b.name.h * k;
   const name = { x: card.x + namePad, y: card.y + h - nameH - 4 * k, w: w - 2 * namePad, h: nameH };
-  const side = Math.min(p.side * k, w * 0.14), top = p.top * k;
-  // The picture box includes room under the part for its shadow; part is the picture itself.
-  const pw = part.w || 1, ph = part.h || 1;
-  const picture = fit({ x: card.x + side, y: card.y + top, w: w - 2 * side, h: name.y - p.bottom * k - (card.y + top) }, pw, ph + b.shadow.extra * pw);
-  const partBox = { ...picture, h: picture.w * ph / pw };
   // "x 3" label in the card's top-right corner.
   const c = b.count, label = countLabel(qty);
   const countSize = Math.round(c.size * k * 2) / 2, countH = c.h * k;
   const countW = 2 * c.pad * k + label.length * countSize * 96 / 72 * 0.56;
+  const count = { x: card.x + w - c.inset * k - countW, y: card.y + c.inset * k, w: countW, h: countH };
+  // Pictures: each box includes room under the part for its shadow (see partInPicture).
+  const pw = part.w || 1, ph = part.h || 1, aspect = pw / (ph + b.shadow.extra * pw);
+  const copies = pieces && qty > 1 && qty <= b.maxCopies ? qty : 1;
+  const side = Math.min(p.side * k, w * 0.14);
+  const top = copies > 1 ? count.y + countH + 4 * k - card.y : p.top * k;   // copies stay clear of the label
+  const area = { x: card.x + (copies > 1 ? 10 * k : side), y: card.y + top, w: w - 2 * (copies > 1 ? 10 * k : side), h: name.y - p.bottom * k - (card.y + top) };
   return {
-    card, picture, part: partBox, name,
-    count: { x: card.x + w - c.inset * k - countW, y: card.y + c.inset * k, w: countW, h: countH },
+    card, name, count, pictures: copyBoxes(area, aspect, copies, b.copyGap),
     nameSize: Math.round(b.name.size * k * 2) / 2, nameMin: Math.max(7, b.name.minSize * Math.min(1, k)),
     countSize,
   };
+}
+
+// n equal boxes of the given aspect (w / h), as large as they can be in the area: rows of copies
+// packed together, the last row centred, the whole group centred.
+function copyBoxes(area, aspect, n, gapShare) {
+  if (n <= 1) return [fit(area, aspect, 1)];
+  let best = null;
+  for (let cols = 1; cols <= n; cols++) {
+    const rows = Math.ceil(n / cols);
+    const bw = Math.min(area.w / (cols + (cols - 1) * gapShare), area.h * aspect / (rows + (rows - 1) * gapShare));
+    if (!best || bw > best.bw) best = { cols, rows, bw };
+  }
+  const { cols, rows, bw } = best, bh = bw / aspect, gap = bw * gapShare;
+  const top = area.y + (area.h - (rows * bh + (rows - 1) * gap)) / 2;
+  return Array.from({ length: n }, (_, i) => {
+    const r = Math.floor(i / cols), inRow = Math.min(cols, n - r * cols);
+    const left = area.x + (area.w - (inRow * bw + (inRow - 1) * gap)) / 2;
+    return { x: left + (i % cols) * (bw + gap), y: top + r * (bh + gap), w: bw, h: bh };
+  });
+}
+
+/** The part itself inside a picture box (the rest of the box, below it, is room for the shadow). */
+export function partInPicture(box, part) {
+  return { ...box, h: box.w * (part.h || 1) / (part.w || 1) };
 }
 
 export const countLabel = qty => `x ${qty}`;
@@ -323,9 +363,25 @@ async function shadowedPicture(part) {
     ctx.restore();
     ctx.globalCompositeOperation = "multiply";   // the white around the part lets the shadow through
     ctx.drawImage(img, 0, 0);
-    shadowCache.set(part.file, { dataUrl: canvas.toDataURL("image/png") });
+    shadowCache.set(part.file, { dataUrl: canvas.toDataURL("image/png"), canvas });
   }
   return shadowCache.get(part.file);
+}
+
+// "Show every piece": all copies of a part drawn into one picture, so the file holds one image
+// per card instead of one per piece. Drawn at 3 pixels per design pixel (about 290 dpi).
+async function copiesPicture(part, boxes) {
+  const { canvas: one } = await shadowedPicture(part);
+  const x0 = Math.min(...boxes.map(b => b.x)), y0 = Math.min(...boxes.map(b => b.y));
+  const box = { x: x0, y: y0, w: Math.max(...boxes.map(b => b.x + b.w)) - x0, h: Math.max(...boxes.map(b => b.y + b.h)) - y0 };
+  const k = 3, canvas = document.createElement("canvas");
+  canvas.width = Math.round(box.w * k); canvas.height = Math.round(box.h * k);
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingQuality = "high";
+  for (const b of boxes) ctx.drawImage(one, (b.x - x0) * k, (b.y - y0) * k, b.w * k, b.h * k);
+  return { dataUrl: canvas.toDataURL("image/png"), box };
 }
 
 async function background(name) {
@@ -360,18 +416,20 @@ export async function buildDeck(build, onProgress = () => {}) {
   const grid = bomGrid(build);
   const pages = bomPages(bomRows(build, library), grid);
   if (partsOnly && !pages.length) throw new Error("Choose at least one part first.");
-  const bomBackground = pages.length ? await background(LAYOUT.bom.background) : null;
+  const look = bomStyle(build);
+  const bomBackground = pages.length ? await background(look.tint.background) : null;
   for (const [page, rows] of pages.entries()) {
     const slide = pptx.addSlide();
     slide.background = { data: bomBackground };
     slide.slideNumber = slideNumber;
     text(slide, bomHeading(page, pages.length), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
     for (const [i, { part, qty }] of rows.entries()) {
-      const cell = bomCell(i, part, grid, qty);
-      const picture = await shadowedPicture(part);
+      const cell = bomCell(i, part, grid, qty, look.pieces);
+      const picture = cell.pictures.length > 1 ? await copiesPicture(part, cell.pictures) : { ...await shadowedPicture(part), box: cell.pictures[0] };
       const b = LAYOUT.bom;
       slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: b.cardLine } });
-      slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
+      const { box } = picture;
+      slide.addImage({ data: pptxData(picture.dataUrl), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: cell.pictures.length > 1 ? `${cell.pictures.length} × ${part.name}` : part.name });
       text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, cell.nameSize, cell.nameMin), color: TEXT_COLOR, align: "center", valign: "middle" });
       slide.addText(countLabel(qty), {
         shape: pptx.ShapeType.roundRect, rectRadius: IN(cell.count.h) / 2, x: IN(cell.count.x), y: IN(cell.count.y), w: IN(cell.count.w), h: IN(cell.count.h),

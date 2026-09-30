@@ -455,9 +455,14 @@ body.dropping::after {
 /* Materials grid size */
 .bom-grid { display: grid; gap: 8px; }
 .bom-grid h4 { margin: 0; font-size: 14px; font-weight: 650; }
+.bom-grid h4:not(:first-child) { margin-top: 8px; }
 .bom-grid h4 span { font-weight: 500; font-size: 12.5px; color: var(--muted); margin-left: 4px; }
 .grid-chips { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .grid-chips button { display: grid; gap: 1px; justify-items: center; padding: 8px 2px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); cursor: pointer; font-size: 14px; }
 .grid-chips button small { font-size: 11px; color: var(--muted); }
 .grid-chips button[aria-checked="true"] { border-color: var(--rust); color: var(--rust); background: #FFF6F1; }
+.tint-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.tint-chips button { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 4px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); cursor: pointer; font-size: 14px; color: inherit; }
+.tint-chips i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #C9B8A3; flex: none; }
+.tint-chips button[aria-checked="true"] { border-color: var(--rust); color: var(--rust); background: #FFF6F1; }
 @media (max-width: 420px) { .grid-chips { grid-template-columns: repeat(4, 1fr); } }

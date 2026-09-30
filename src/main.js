@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MOVES, bomCell, countLabel, namedPart, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MOVES, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -464,14 +464,14 @@ function partShadow(p) {
   return { x: p.x + (p.w - w) / 2, y: p.y + p.h * 0.933 - h / 2, w, h };
 }
 
-function bomSlidePreview(rows, page, pageCount, grid) {
-  return `<div class="slide bom-slide" aria-label="Materials slide preview">
+function bomSlidePreview(rows, page, pageCount, grid, look) {
+  return `<div class="slide bom-slide" style="background-image:url(slides/${look.tint.background}.jpg)" aria-label="Materials slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(bomHeading(page, pageCount))}</div>
     ${rows.map(({ part, qty }, i) => {
-      const c = bomCell(i, part, grid, qty);
+      const c = bomCell(i, part, grid, qty, look.pieces);
       return `<div class="s-card" style="${box(c.card)}"></div>
-        <div class="s-shadow" style="${box(partShadow(c.part))}"></div>
-        <img class="s-part s-bom-part" src="${esc(part.file)}" style="${box(c.part)}" alt="">
+        ${c.pictures.map(pic => partInPicture(pic, part)).map(p => `<div class="s-shadow" style="${box(partShadow(p))}"></div>
+        <img class="s-part s-bom-part" src="${esc(part.file)}" style="${box(p)}" alt="">`).join("")}
         <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, c.nameSize, c.nameMin))}">${esc(part.name)}</div>
         <div class="s-count" style="${box(c.count)};${fontSize(c.countSize)}">${esc(countLabel(qty))}</div>`;
     }).join("")}
@@ -525,7 +525,7 @@ async function renderBom(buildId, { picker = false } = {}) {
 
   const draw = () => {
     const rows = materials(build, library);
-    const grid = bomGrid(build), perSlide = grid.cols * grid.rows;
+    const grid = bomGrid(build), perSlide = grid.cols * grid.rows, look = bomStyle(build);
     const pages = bomPages(rows.filter(r => !r.hidden && r.qty > 0), grid);
     const pieces = rows.filter(r => !r.hidden).reduce((sum, r) => sum + r.qty, 0);
     app.innerHTML = `
@@ -537,10 +537,18 @@ async function renderBom(buildId, { picker = false } = {}) {
         ${list ? `<button class="icon-btn" id="menu" aria-label="List options">⋯</button>` : ""}
       </header>
       <section class="page editor">
-        <div class="bom-previews">${(pages.length ? pages : [[]]).map((page, i) => bomSlidePreview(page, i, pages.length, grid)).join("")}</div>
+        <div class="bom-previews">${(pages.length ? pages : [[]]).map((page, i) => bomSlidePreview(page, i, pages.length, grid, look)).join("")}</div>
         <div class="bom-grid">
           <h4>Grid <span>columns × rows · parts per slide</span></h4>
           <div class="grid-chips" role="radiogroup" aria-label="Grid size">${BOM_GRIDS.map(g => `<button role="radio" aria-checked="${g.cols === grid.cols && g.rows === grid.rows}" data-grid="${g.cols}x${g.rows}"><b>${g.cols}×${g.rows}</b><small>${g.cols * g.rows}</small></button>`).join("")}</div>
+          <h4>Page</h4>
+          <div class="tint-chips" role="radiogroup" aria-label="Page colour">${LAYOUT.bom.tints.map(t => `<button role="radio" aria-checked="${t.id === look.tint.id}" data-tint="${t.id}"><i style="background:${t.swatch}"></i>${t.label}</button>`).join("")}</div>
+          <h4>Parts</h4>
+          <div class="segmented" role="radiogroup" aria-label="How parts are shown">
+            <button role="radio" aria-checked="${!look.pieces}" data-pieces="0">One picture + count</button>
+            <button role="radio" aria-checked="${look.pieces}" data-pieces="1">Show every piece</button>
+          </div>
+          ${look.pieces ? `<p class="hint">Each part is drawn once per piece, up to ${LAYOUT.bom.maxCopies}; parts needed more often are shown once with their count.</p>` : ""}
         </div>
         <p class="hint">${list
           ? `The deck has only the Materials Required slide${pages.length > 1 ? "s" : ""}: no cover, steps or closing slide. Choose the parts and how many of each are needed.${pages.length > 1 ? ` More than ${perSlide} parts continue on another slide.` : ""}`
@@ -598,6 +606,9 @@ async function renderBom(buildId, { picker = false } = {}) {
       draw();
     }));
     $("#add-extra").addEventListener("click", () => { location.hash = `${here}/parts`; });
+    const setStyle = async change => { build.bomStyle = { ...build.bomStyle, ...change }; await saveBuild(build); draw(); };
+    app.querySelectorAll("[data-tint]").forEach(b => b.addEventListener("click", () => setStyle({ tint: b.dataset.tint })));
+    app.querySelectorAll("[data-pieces]").forEach(b => b.addEventListener("click", () => setStyle({ pieces: b.dataset.pieces === "1" })));
     app.querySelectorAll("[data-grid]").forEach(b => b.addEventListener("click", async () => {
       const [cols, rows] = b.dataset.grid.split("x").map(Number);
       build.bomGrid = { cols, rows };
