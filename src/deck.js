@@ -317,7 +317,7 @@ export function photoBox(step, photo) {
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
 export function partNameStyle(step) {
   const size = LAYOUT.partName.sizes.includes(step?.partName?.size) ? step.partName.size : LAYOUT.partName.default;
-  return { show: !step?.partName?.hideNames, size };
+  return { show: !step?.partName?.hideNames, size, below: step?.partName?.labelPos === "below" };
 }
 
 // A no-break space keeps "2 Pieces" on one line when the label wraps.
@@ -343,15 +343,15 @@ export function partCells(count, area = LAYOUT.parts) {
  * Where each part's picture and its label ("Plate 2 x 2 - 2 Pieces") go. Parts are stacked in one
  * column; each label sits to the right of its picture, vertically centred on it, and may use the
  * free space up to labelLimit (the left edge of the step photo). When that space is too narrow the
- * picture gives up part of the column instead. Older steps with more than 3 parts keep the label
- * under the picture.
+ * picture gives up part of the column instead. With "Under the part" chosen for the step (and on
+ * older steps with more than 3 parts) the label goes under the picture.
  * parts: [{ part: { w, h, name }, qty }]
  */
 export function partLayout(parts, names, area = LAYOUT.parts, labelLimit = area.x + area.w) {
   const cells = partCells(parts.length, area);
   const labels = parts.map(({ part, qty }) => partLabel(part.name, qty, names));
   const labelled = labels.some(l => l.length);
-  if (parts.length > MAX_STEP_PARTS) {
+  if (names.below || parts.length > MAX_STEP_PARTS) {
     // Label below: room for two lines of the chosen size (points -> design pixels, 1.2 line height).
     const labelH = labelled ? Math.ceil(names.size * 96 / 72 * 1.2 * (names.show ? 2 : 1)) + 4 : 0;
     return parts.map(({ part }, i) => {

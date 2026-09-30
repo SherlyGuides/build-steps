@@ -791,8 +791,12 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
           <div id="ai-out" class="ai-out" aria-live="polite"></div>
           ${MOVES[step.move] ? "" : `
-          <label class="switch"><input type="checkbox" id="pn-show" ${partNameStyle(step).show ? "checked" : ""}><span></span> Show part names next to the pictures</label>
-          <p class="hint">Next to each part: "Plate 2 x 2 - 2 Pieces", or just the name for a single piece. With names off, only "2 Pieces" is shown. Label size:</p>
+          <label class="switch"><input type="checkbox" id="pn-show" ${partNameStyle(step).show ? "checked" : ""}><span></span> Show part names</label>
+          <div class="segmented" role="radiogroup" aria-label="Where the part label goes">
+            <button role="radio" aria-checked="${!partNameStyle(step).below}" data-pn-pos="">Beside the part</button>
+            <button role="radio" aria-checked="${partNameStyle(step).below}" data-pn-pos="below">Under the part</button>
+          </div>
+          <p class="hint">Each part is labelled "Plate 2 x 2 - 2 Pieces", or just the name for a single piece. With names off, only "2 Pieces" is shown. Label size:</p>
           <div class="pe-size" id="pn-sizes" role="radiogroup" aria-label="Part label size">
             ${LAYOUT.partName.sizes.map((pt, i) => `<button role="radio" aria-checked="${partNameStyle(step, build).size === pt}" data-pn-size="${pt}">${["Small", "Medium", "Large", "Extra large"][i]} <small>${pt} pt</small></button>`).join("")}
           </div>`}
@@ -970,6 +974,11 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       step.partName = { ...step.partName, hideNames: !e.target.checked || undefined };
       await save(); refreshPreview();
     });
+    app.querySelectorAll("[data-pn-pos]").forEach(b => b.addEventListener("click", async () => {
+      step.partName = { ...step.partName, labelPos: b.dataset.pnPos || undefined };
+      app.querySelectorAll("[data-pn-pos]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+      await save(); refreshPreview();
+    }));
     app.querySelectorAll("[data-pn-size]").forEach(b => b.addEventListener("click", async () => {
       step.partName = { ...step.partName, size: Number(b.dataset.pnSize) };
       app.querySelectorAll("[data-pn-size]").forEach(x => x.setAttribute("aria-checked", String(x === b)));

@@ -77,7 +77,7 @@ export async function importBuild(file) {
       split: Number.isFinite(Number(step.split)) ? Number(step.split) : undefined,
       layout: step.layout === "single" ? "single" : undefined,
       beforeSplit: Number.isFinite(Number(step.beforeSplit)) ? Number(step.beforeSplit) : undefined,
-      partName: step.partName && typeof step.partName === "object" ? { hideNames: step.partName.hideNames ? true : undefined, size: Number(step.partName.size) || undefined } : undefined,
+      partName: step.partName && typeof step.partName === "object" ? { hideNames: step.partName.hideNames ? true : undefined, labelPos: step.partName.labelPos === "below" ? "below" : undefined, size: Number(step.partName.size) || undefined } : undefined,
       photo,
       leftPhoto,
     });
