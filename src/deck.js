@@ -25,15 +25,15 @@ export const LAYOUT = {
   heading: { x: 40, y: 20, w: 1060, h: 52, size: 32 },
   instruction: { x: 60, y: 92, w: 1160, h: 78, size: 24, minSize: 16 },   // two lines at 24 pt fit above the pictures
   // Step slide: part(s) on the left, step photo on the right. The split is set per step,
-  // from ¼ – ¾ (small part, big photo) to ½ – ½; see stepAreas().
+  // from 10% – 90% (small part, big photo) to 90% – 10%; see stepAreas().
   content: { x: 50, right: 1220, gap: 40 },
   parts: { x: 50, y: 190, w: 450, h: 440 },
   photo: { x: 540, y: 170, w: 680, h: 470 },
-  split: { min: 0.25, max: 0.5, default: 0.4 },
+  split: { min: 0.1, max: 0.9, default: 0.4 },
   // "One picture" steps: only the step photo, centred in the whole area under the instruction.
   single: { x: 50, y: 170, w: 1170, h: 470 },
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
-  // split (step.beforeSplit) from ¼ – ¾ to ½ – ½, equal by default. See stepAreas().
+  // split (step.beforeSplit) from 10% – 90% to 90% – 10%, equal by default. See stepAreas().
   move: { y: 175, h: 465, defaultSplit: 0.5 },
   // Part name under the part picture: off unless turned on for the step; up to two lines.
   partName: { sizes: [16, 20, 24, 28], default: 24, minSize: 12 },
@@ -168,7 +168,7 @@ export function partsGrid(count) {
 /** A step set to "One picture": just the step photo, centred. */
 export const isSinglePicture = step => step?.layout === "single";
 
-/** The step's share of the width for the part(s), between ¼ and ½. */
+/** The step's share of the width for the left side, between 10% and 90%. */
 export function stepSplit(step) {
   const { min, max } = LAYOUT.split;
   const move = !!MOVES[step?.move];

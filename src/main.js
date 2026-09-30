@@ -719,7 +719,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <label class="split">
             <span><b id="split-label"></b></span>
             <input type="range" id="split" min="${LAYOUT.split.min * 100}" max="${LAYOUT.split.max * 100}" step="1" value="${Math.round(stepSplit(step) * 100)}">
-            <span class="split-ends"><span>${MOVES[step.move] ? "Previous ¼ · This step ¾" : "Part ¼ · Photo ¾"}</span><span>½ · ½</span></span>
+            <span class="split-ends"><span>${MOVES[step.move] ? "Bigger this step" : "Bigger photo"}</span><span>Equal</span><span>${MOVES[step.move] ? "Bigger previous image" : "Bigger part"}</span></span>
           </label>
           <div class="left-pic">
             <h4>Left side <span>${step.leftPhoto ? "custom picture" : MOVES[step.move] ? "previous step's photo" : "part pictures"}</span></h4>
