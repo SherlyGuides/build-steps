@@ -32,9 +32,9 @@ export const LAYOUT = {
   split: { min: 0.25, max: 0.5, default: 0.4 },
   // "One picture" steps: only the step photo, centred in the whole area under the instruction.
   single: { x: 50, y: 170, w: 1170, h: 470 },
-  // Flip / turn steps: before (previous step's photo) and after, the same size.
-  moveBefore: { x: 50, y: 175, w: 570, h: 465 },
-  moveAfter: { x: 650, y: 175, w: 570, h: 465 },
+  // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
+  // split (step.beforeSplit) from ¼ – ¾ to ½ – ½, equal by default. See stepAreas().
+  move: { y: 175, h: 465, defaultSplit: 0.5 },
   // Part name under the part picture: off unless turned on for the step; up to two lines.
   partName: { sizes: [16, 20, 24, 28], default: 24, minSize: 12 },
   quantity: { size: 24 },
@@ -171,8 +171,9 @@ export const isSinglePicture = step => step?.layout === "single";
 /** The step's share of the width for the part(s), between ¼ and ½. */
 export function stepSplit(step) {
   const { min, max } = LAYOUT.split;
-  const value = Number(step?.split);
-  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : LAYOUT.split.default;
+  const move = !!MOVES[step?.move];
+  const value = Number(move ? step?.beforeSplit : step?.split);
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : move ? LAYOUT.move.defaultSplit : LAYOUT.split.default;
 }
 
 /** Part area (left) and photo area (right) for a step slide. */
@@ -180,6 +181,11 @@ export function stepAreas(step) {
   const { x, right, gap } = LAYOUT.content;
   const width = right - x - gap;
   const partsW = Math.round(width * stepSplit(step));
+  if (MOVES[step?.move]) {
+    // Previous image on the left, this step's image on the right, same height.
+    const { y, h } = LAYOUT.move;
+    return { parts: { x, y, w: partsW, h }, photo: { x: x + partsW + gap, y, w: width - partsW, h } };
+  }
   return {
     parts: { x, y: LAYOUT.parts.y, w: partsW, h: LAYOUT.parts.h },
     photo: { x: x + partsW + gap, y: LAYOUT.photo.y, w: width - partsW, h: LAYOUT.photo.h },
@@ -311,7 +317,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (left) {
       const blob = await getImage(left.id);
       if (blob) {
-        const box = fit(move ? LAYOUT.moveBefore : areas.parts, left.w, left.h);
+        const box = fit(areas.parts, left.w, left.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: `${stepHeading(index)}: picture` });
       }
     }
@@ -319,7 +325,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (before) {
       const blob = await getImage(before.id);
       if (blob) {
-        const box = fit(LAYOUT.moveBefore, before.w, before.h);
+        const box = fit(areas.parts, before.w, before.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: `Before: ${stepHeading(index - 1)}` });
       }
     }
@@ -342,7 +348,7 @@ export async function buildDeck(build, onProgress = () => {}) {
     if (step.photo) {
       const blob = await getImage(step.photo.id);
       if (blob) {
-        const box = fit(single ? LAYOUT.single : move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h);
+        const box = fit(single ? LAYOUT.single : areas.photo, step.photo.w, step.photo.h);
         slide.addImage({ data: pptxData(await blobToDataUrl(blob)), x: IN(box.x), y: IN(box.y), w: IN(box.w), h: IN(box.h), altText: stepHeading(index) });
       }
     }

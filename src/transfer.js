@@ -76,6 +76,7 @@ export async function importBuild(file) {
       onto: Array.isArray(step.onto) ? step.onto.map(String).slice(0, 2) : [],
       split: Number.isFinite(Number(step.split)) ? Number(step.split) : undefined,
       layout: step.layout === "single" ? "single" : undefined,
+      beforeSplit: Number.isFinite(Number(step.beforeSplit)) ? Number(step.beforeSplit) : undefined,
       partName: step.partName && typeof step.partName === "object" ? { show: !!step.partName.show, size: Number(step.partName.size) || undefined } : undefined,
       photo,
       leftPhoto,

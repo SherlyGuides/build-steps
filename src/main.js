@@ -320,14 +320,12 @@ async function renderBuild(buildId) {
 /** Width ÷ height of a step's photo area, for the photo editor's "Slide" crop. */
 function slideAspectOf(step) {
   if (isSinglePicture(step)) return LAYOUT.single.w / LAYOUT.single.h;
-  if (MOVES[step.move]) return LAYOUT.moveAfter.w / LAYOUT.moveAfter.h;
   const { photo } = stepAreas(step);
   return photo.w / photo.h;
 }
 
 /** Width ÷ height of the left side, for a custom left picture's "Slide" crop. */
 function leftAspectOf(step) {
-  if (MOVES[step.move]) return LAYOUT.moveBefore.w / LAYOUT.moveBefore.h;
   const { parts } = stepAreas(step);
   return parts.w / parts.h;
 }
@@ -614,17 +612,17 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
   return `<div class="slide" aria-label="Slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(stepHeading(index))}</div>
     <div class="s-instruction" style="${box(LAYOUT.instruction)};${fontSize(fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, LAYOUT.instruction.minSize))}">${step.instruction.trim() ? `<mark>${esc(step.instruction.trim())}</mark>` : ""}</div>
-    ${left ? (leftSrc ? `<img class="s-photo" src="${leftSrc}" style="${box(fit(move ? LAYOUT.moveBefore : areas.parts, left.w, left.h))}" alt="">` : "") : ""}
-    ${move && !left && !single ? (beforeSrc ? `<img class="s-photo" src="${beforeSrc}" style="${box(fit(LAYOUT.moveBefore, build.steps[index - 1].photo.w, build.steps[index - 1].photo.h))}" alt="">`
-      : `<div class="s-photo-empty" style="${box(LAYOUT.moveBefore)}">${index ? "Previous step has no photo" : "Before"}</div>`) : ""}
+    ${left ? (leftSrc ? `<img class="s-photo" src="${leftSrc}" style="${box(fit(areas.parts, left.w, left.h))}" alt="">` : "") : ""}
+    ${move && !left && !single ? (beforeSrc ? `<img class="s-photo" src="${beforeSrc}" style="${box(fit(areas.parts, build.steps[index - 1].photo.w, build.steps[index - 1].photo.h))}" alt="">`
+      : `<div class="s-photo-empty" style="${box(areas.parts)}">${index ? "Previous step has no photo" : "Before"}</div>`) : ""}
     ${parts.map(({ part, qty }, i) => {
       const { image, qtyBox, nameBox } = placed[i];
       return `<img class="s-part" src="${esc(part.file)}" style="${box(image)}" alt="">
         ${qtyBox ? `<div class="s-qty" style="${box(qtyBox)};${fontSize(LAYOUT.quantity.size)}">x${qty}</div>` : ""}
         ${nameBox ? `<div class="s-name" style="${box(nameBox)};${fontSize(fittedSize(part.name, nameBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)}</div>` : ""}`;
     }).join("")}
-    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(single ? LAYOUT.single : move ? LAYOUT.moveAfter : areas.photo, step.photo.w, step.photo.h))}" alt="">`
-      : `<div class="s-photo-empty" style="${box(single ? LAYOUT.single : move ? LAYOUT.moveAfter : areas.photo)}">${move && !single ? "Photo after the move" : "Step photo"}</div>`}
+    ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(fit(single ? LAYOUT.single : areas.photo, step.photo.w, step.photo.h))}" alt="">`
+      : `<div class="s-photo-empty" style="${box(single ? LAYOUT.single : areas.photo)}">${move && !single ? "Photo after the move" : "Step photo"}</div>`}
   </div>`;
 }
 
@@ -718,12 +716,11 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
             <button role="radio" aria-checked="${isSinglePicture(step)}" data-layout="single">One picture, centred</button>
           </div>
           ${isSinglePicture(step) ? `<p class="hint">Only the step photo is shown, centred. ${MOVES[step.move] ? "The before photo" : "Part pictures"} and any custom left picture are left out; the parts still count in the BOM.</p>` : `
-          ${MOVES[step.move] ? "" : `
           <label class="split">
             <span><b id="split-label"></b></span>
             <input type="range" id="split" min="${LAYOUT.split.min * 100}" max="${LAYOUT.split.max * 100}" step="1" value="${Math.round(stepSplit(step) * 100)}">
-            <span class="split-ends"><span>Part ¼ · Photo ¾</span><span>½ · ½</span></span>
-          </label>`}
+            <span class="split-ends"><span>${MOVES[step.move] ? "Previous ¼ · This step ¾" : "Part ¼ · Photo ¾"}</span><span>½ · ½</span></span>
+          </label>
           <div class="left-pic">
             <h4>Left side <span>${step.leftPhoto ? "custom picture" : MOVES[step.move] ? "previous step's photo" : "part pictures"}</span></h4>
             ${step.leftPhoto ? `
@@ -861,13 +858,19 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     });
     const splitLabel = () => {
       const part = stepSplit(step);
-      $("#split-label").textContent = `Part ${Math.round(part * 100)}% · Photo ${100 - Math.round(part * 100)}%`;
+      $("#split-label").textContent = MOVES[step.move]
+        ? `Previous image ${Math.round(part * 100)}% · This step ${100 - Math.round(part * 100)}%`
+        : `Part ${Math.round(part * 100)}% · Photo ${100 - Math.round(part * 100)}%`;
     };
     if ($("#split")) {
       splitLabel();
-      $("#split").addEventListener("input", e => { step.split = Number(e.target.value) / 100; splitLabel(); refreshPreview(); });
+      $("#split").addEventListener("input", e => {
+        const value = Number(e.target.value) / 100;
+        if (MOVES[step.move]) step.beforeSplit = value; else step.split = value;
+        splitLabel(); refreshPreview();
+      });
       $("#split").addEventListener("change", () => save());
-      $("#layout-all").addEventListener("click", async () => {
+      $("#layout-all")?.addEventListener("click", async () => {
         if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split${partNameStyle(step, build).show ? ` and part names at ${partNameStyle(step, build).size} pt` : " and no part names"}.`, "Apply to all", false))) return;
         for (const other of build.steps) { other.split = step.split; other.partName = { ...partNameStyle(step, build) }; }
         await save();
