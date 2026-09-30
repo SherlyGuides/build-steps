@@ -9,7 +9,8 @@ const FORMAT = "thinkpro-build-steps";
 
 export function buildFileName(build) {
   const name = build.name.replace(/[^A-Za-z0-9 _-]+/g, "-").trim().slice(0, 80) || "Build";
-  return `${name}_G${build.grade}_S${build.session}_build.zip`;
+  const where = build.grade && build.session ? `_G${build.grade}_S${build.session}` : "";
+  return `${name}${build.kind === "bom" ? "_materials-list" : ""}${where}_build.zip`;
 }
 
 export async function exportBuild(build) {

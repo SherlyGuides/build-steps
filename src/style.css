@@ -426,3 +426,7 @@ body.dropping::after {
   .pe-panel { grid-area: panel; border-left: 1px solid #23282C; overflow-y: auto; align-content: start; padding: 18px 20px; gap: 14px; }
   .pe-tool:hover, .pe-chip:hover, .pe-tabs button:hover { background: rgb(255 255 255 / .08) !important; }
 }
+
+/* Parts list */
+.tag { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--rust); background: #FFF0E8; border-radius: 6px; padding: 2px 7px; margin-right: 8px; vertical-align: 2px; }
+#add-all { justify-self: start; }

@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { LAYOUT, MOVES, bomCell, fittedSize, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, materials, partLayout, stepHeading } from "./deck.js";
+import { LAYOUT, MOVES, bomCell, fittedSize, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -145,21 +145,23 @@ function confirmDialog(title, message, action, danger = true) {
   (el, close) => el.querySelector("[data-ok]").addEventListener("click", () => close(true)));
 }
 
-async function detailsDialog(build) {
+async function detailsDialog(build, { list = isPartsList(build) } = {}) {
   const kits = await loadKits();
   const range = (min, max, value) => Array.from({ length: max - min + 1 }, (_, i) => min + i)
     .map(n => `<option value="${n}" ${n === value ? "selected" : ""}>${n}</option>`).join("");
+  // A parts list has no cover, so grade and session are optional (they only appear in the file name).
+  const first = (chosen) => list ? `<option value="" ${chosen ? "" : "selected"}>Not set</option>` : build ? "" : '<option value="" selected disabled>Choose</option>';
   return dialog(`
     <form method="dialog" class="details">
-      <h2>${build ? "Build details" : "New build"}</h2>
-      <label>Build name<input name="name" required maxlength="${MAX_NAME}" autocomplete="off" placeholder="e.g. Tipper Truck" value="${esc(build?.name)}"></label>
+      <h2>${list ? (build ? "Parts list details" : "New parts list") : build ? "Build details" : "New build"}</h2>
+      <label>${list ? "List name" : "Build name"}<input name="name" required maxlength="${MAX_NAME}" autocomplete="off" placeholder="${list ? "e.g. Tipper Truck parts" : "e.g. Tipper Truck"}" value="${esc(build?.name)}"></label>
       <div class="row">
-        <label>Grade<select name="grade" required>${build ? "" : '<option value="" selected disabled>Choose</option>'}${range(MIN_GRADE, MAX_GRADE, build?.grade)}</select></label>
-        <label>Session<select name="session" required>${build ? "" : '<option value="" selected disabled>Choose</option>'}${range(MIN_SESSION, MAX_SESSION, build?.session)}</select></label>
+        <label>Grade${list ? " (optional)" : ""}<select name="grade" ${list ? "" : "required"}>${first(build?.grade)}${range(MIN_GRADE, MAX_GRADE, build?.grade)}</select></label>
+        <label>Session${list ? " (optional)" : ""}<select name="session" ${list ? "" : "required"}>${first(build?.session)}${range(MIN_SESSION, MAX_SESSION, build?.session)}</select></label>
       </div>
-      <label>Parts library<select name="kit" ${build?.steps.some(s => s.parts.length) ? "disabled" : ""}>${kits.map(k => `<option value="${esc(k.id)}" ${k.id === (build?.kit ?? kits[0].id) ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
+      <label>Parts library<select name="kit" ${build?.steps.some(s => s.parts.length) || build?.bom?.extras?.length ? "disabled" : ""}>${kits.map(k => `<option value="${esc(k.id)}" ${k.id === (build?.kit ?? kits[0].id) ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
       <div class="dialog-actions"><button type="button" class="btn ghost" data-close>Cancel</button>
-      <button class="btn primary">${build ? "Save" : "Start build"}</button></div>
+      <button class="btn primary">${build ? "Save" : list ? "Start list" : "Start build"}</button></div>
     </form>`,
   (el, close) => {
     const form = el.querySelector("form");
@@ -167,7 +169,7 @@ async function detailsDialog(build) {
       e.preventDefault();
       const name = form.name.value.replace(/\s+/g, " ").trim();
       if (!name) { form.name.focus(); return; }
-      close({ name, grade: Number(form.grade.value), session: Number(form.session.value), kit: form.kit.value || build?.kit });
+      close({ name, grade: form.grade.value ? Number(form.grade.value) : null, session: form.session.value ? Number(form.session.value) : null, kit: form.kit.value || build?.kit });
     });
   });
 }
@@ -183,21 +185,27 @@ async function renderHome() {
     <header class="bar"><div class="brand"><span class="mark"></span><div><h1>Build Steps</h1><p>Build instruction decks</p></div></div></header>
     <section class="page">
       ${builds.length ? `<ul class="build-list">${builds.map(b => `
-        <li class="build-row"><a href="#/build/${esc(b.id)}" class="build-card">
-          <strong>${esc(b.name)}</strong>
-          <span>Grade ${b.grade} · Session ${b.session} · ${esc(names[b.kit] ?? b.kit)}</span>
-          <span class="meta">${b.steps.length} step${b.steps.length === 1 ? "" : "s"} · edited ${new Date(b.updatedAt).toLocaleDateString()}</span>
+        <li class="build-row"><a href="#/build/${esc(b.id)}${isPartsList(b) ? "/bom" : ""}" class="build-card">
+          <strong>${isPartsList(b) ? `<i class="tag">Parts list</i>` : ""}${esc(b.name)}</strong>
+          <span>${b.grade && b.session ? `Grade ${b.grade} · Session ${b.session} · ` : ""}${esc(names[b.kit] ?? b.kit)}</span>
+          <span class="meta">${isPartsList(b)
+            ? `${(b.bom?.extras ?? []).length} part${(b.bom?.extras ?? []).length === 1 ? "" : "s"}`
+            : `${b.steps.length} step${b.steps.length === 1 ? "" : "s"}`} · edited ${new Date(b.updatedAt).toLocaleDateString()}</span>
         </a><button class="icon-btn delete-build" data-delete="${esc(b.id)}" aria-label="Delete ${esc(b.name)}">🗑</button></li>`).join("")}</ul>`
-      : `<div class="empty"><h2>No builds yet</h2><p>Start a build, photograph each step, pick the parts it uses and write the instruction. Generate Deck makes the PowerPoint.</p></div>`}
+      : `<div class="empty"><h2>No builds yet</h2><p>Start a build, photograph each step, pick the parts it uses and write the instruction. Generate Deck makes the PowerPoint.</p><p>Or make a <b>parts list</b>: just the Materials Required slides, with the parts you choose.</p></div>`}
       <p class="source-link"><a href="https://github.com/SherlyGuides/build-steps" target="_blank" rel="noopener">Source code</a> · AGPL-3.0</p>
     </section>
     <footer class="actions">
-      <button class="btn secondary" id="import">Open build file</button>
+      <button class="btn secondary" id="import">Open file</button>
+      <button class="btn secondary" id="new-list">Parts list</button>
       <button class="btn primary" id="new">New build</button>
     </footer>`;
   app.querySelectorAll("[data-delete]").forEach(button => button.addEventListener("click", async () => {
     const build = builds.find(b => b.id === button.dataset.delete);
-    if (!build || !(await confirmDialog("Delete this build?", `"${build.name}" and its ${build.steps.length} step photo${build.steps.length === 1 ? "" : "s"} will be removed from this phone. Decks already made are not affected. Save a build file first (⋯ → Save build file) if you may want it back.`, "Delete"))) return;
+    const what = isPartsList(build) ? "parts list" : "build";
+    if (!build || !(await confirmDialog(`Delete this ${what}?`, isPartsList(build)
+      ? `"${build.name}" will be removed from this phone. Decks already made are not affected.`
+      : `"${build.name}" and its ${build.steps.length} step photo${build.steps.length === 1 ? "" : "s"} will be removed from this phone. Decks already made are not affected. Save a build file first (⋯ → Save build file) if you may want it back.`, "Delete"))) return;
     build.steps.forEach(s => photoImageIds(s.photo).forEach(forgetPhoto));
     await deleteBuild(build);
     toast(`"${build.name}" deleted.`);
@@ -210,13 +218,22 @@ async function renderHome() {
     await saveBuild(build);
     location.hash = `#/build/${build.id}`;
   });
+  $("#new-list").addEventListener("click", async () => {
+    const details = await detailsDialog(null, { list: true });
+    if (!details) return;
+    const list = { id: uid(), kind: "bom", ...details, deckVersion: 1, steps: [], bom: { overrides: {}, extras: [] }, createdAt: Date.now() };
+    await saveBuild(list);
+    // Straight to choosing parts.
+    history.pushState(null, "", `#/build/${list.id}/bom`);
+    location.hash = `#/build/${list.id}/bom/parts`;
+  });
   $("#import").addEventListener("click", async () => {
     const file = await pickBuildFile();
     if (!file) return;
     try {
       const build = await importBuild(file);
-      toast(`"${build.name}" opened with ${build.steps.length} steps.`);
-      location.hash = `#/build/${build.id}`;
+      toast(isPartsList(build) ? `Parts list "${build.name}" opened.` : `"${build.name}" opened with ${build.steps.length} steps.`);
+      location.hash = `#/build/${build.id}${isPartsList(build) ? "/bom" : ""}`;
     } catch (error) { fail(error); }
   });
 }
@@ -232,6 +249,7 @@ function stepIssues(step) {
 async function renderBuild(buildId) {
   const build = await getBuild(buildId);
   if (!build) { location.replace("#/"); return; }
+  if (isPartsList(build)) { location.replace(`#/build/${buildId}/bom`); return; }
   const library = await loadParts(build.kit);
   const thumbs = await Promise.all(build.steps.map(s => photoUrl(s.photo)));
   const incomplete = build.steps.filter(s => stepIssues(s).length).length;
@@ -356,12 +374,13 @@ async function addStepsFromGallery(build, dropped = null) {
 }
 
 async function buildMenu(build) {
+  const list = isPartsList(build);
   const choice = await dialog(`
     <h2>${esc(build.name)}</h2>
     <div class="menu">
-      <button class="btn secondary" data-choice="details">Edit name, grade, session</button>
-      <button class="btn secondary" data-choice="export">Save build file (backup / another device)</button>
-      <button class="btn danger-ghost" data-choice="delete">Delete build</button>
+      <button class="btn secondary" data-choice="details">${list ? "Edit name, grade, session" : "Edit name, grade, session"}</button>
+      <button class="btn secondary" data-choice="export">Save ${list ? "list" : "build"} file (backup / another device)</button>
+      <button class="btn danger-ghost" data-choice="delete">Delete ${list ? "parts list" : "build"}</button>
     </div>
     <div class="dialog-actions"><button class="btn ghost" data-close>Close</button></div>`,
   (el, close) => el.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => close(b.dataset.choice))));
@@ -371,16 +390,16 @@ async function buildMenu(build) {
     if (!details) return;
     Object.assign(build, details);
     await saveBuild(build);
-    renderBuild(build.id);
+    list ? renderBom(build.id) : renderBuild(build.id);
   } else if (choice === "export") {
     try {
       busy(true, "Packing the build file…");
       const blob = await exportBuild(build);
       busy(false);
-      await offerFile(blob, buildFileName(build), build.name, "Build file ready");
+      await offerFile(blob, buildFileName(build), build.name, list ? "List file ready" : "Build file ready");
     } catch (error) { busy(false); fail(error); }
   } else if (choice === "delete") {
-    if (!(await confirmDialog("Delete this build?", `"${build.name}" and its ${build.steps.length} step photos will be removed from this phone. Decks already made are not affected.`, "Delete"))) return;
+    if (!(await confirmDialog(`Delete this ${list ? "parts list" : "build"}?`, list ? `"${build.name}" will be removed from this phone. Decks already made are not affected.` : `"${build.name}" and its ${build.steps.length} step photos will be removed from this phone. Decks already made are not affected.`, "Delete"))) return;
     build.steps.forEach(s => photoImageIds(s.photo).forEach(forgetPhoto));
     await deleteBuild(build);
     location.hash = "#/";
@@ -463,23 +482,31 @@ async function renderBom(buildId, { picker = false } = {}) {
   if (!build) { location.replace("#/"); return; }
   const library = await loadParts(build.kit);
   const here = `#/build/${buildId}/bom`;
+  const list = isPartsList(build);   // a standalone parts list: only Materials slides, parts chosen by hand
+  const kit = await kitName(build.kit);
 
   const draw = () => {
     const rows = materials(build, library);
     const pages = bomPages(rows.filter(r => !r.hidden && r.qty > 0));
+    const pieces = rows.filter(r => !r.hidden).reduce((sum, r) => sum + r.qty, 0);
     app.innerHTML = `
       <header class="bar">
-        <a href="#/build/${esc(buildId)}" class="icon-btn" aria-label="Back to steps">‹</a>
-        <div class="title"><h1>Materials required</h1><p>${esc(build.name)} · ${pages.length > 1 ? `slides 2–${pages.length + 1}` : "slide 2"}</p></div>
+        <a href="${list ? "#/" : `#/build/${esc(buildId)}`}" class="icon-btn" aria-label="${list ? "All builds" : "Back to steps"}">‹</a>
+        <div class="title"><h1>${list ? esc(build.name) : "Materials required"}</h1><p>${list
+          ? `Parts list · ${rows.length} part${rows.length === 1 ? "" : "s"} · ${pieces} piece${pieces === 1 ? "" : "s"}`
+          : `${esc(build.name)} · ${pages.length > 1 ? `slides 2–${pages.length + 1}` : "slide 2"}`}</p></div>
+        ${list ? `<button class="icon-btn" id="menu" aria-label="List options">⋯</button>` : ""}
       </header>
       <section class="page editor">
         <div class="bom-previews">${(pages.length ? pages : [[]]).map((page, i) => bomSlidePreview(page, i, pages.length)).join("")}</div>
-        <p class="hint">Quantities are added up from the steps automatically and stay up to date when steps change. Change a number, hide a part or add an extra one here; <b>↺</b> goes back to the automatic count.${pages.length > 1 ? ` More than ${LAYOUT.bom.cols * LAYOUT.bom.rows} parts continue on another Materials slide.` : ""}</p>
+        <p class="hint">${list
+          ? `The deck has only the Materials Required slide${pages.length > 1 ? "s" : ""}: no cover, steps or closing slide. Choose the parts and how many of each are needed.${pages.length > 1 ? ` More than ${LAYOUT.bom.cols * LAYOUT.bom.rows} parts continue on another slide.` : ""}`
+          : `Quantities are added up from the steps automatically and stay up to date when steps change. Change a number, hide a part or add an extra one here; <b>↺</b> goes back to the automatic count.${pages.length > 1 ? ` More than ${LAYOUT.bom.cols * LAYOUT.bom.rows} parts continue on another Materials slide.` : ""}`}</p>
         ${rows.length ? `<ul class="chosen bom-rows">${rows.map(r => `
           <li class="${r.hidden ? "hidden-row" : ""}">
             <img src="${esc(r.part.file)}" alt="">
             <span class="name">${esc(r.part.name)}
-              <small>${r.extra ? "Extra part, not in any step" : r.edited ? `Automatic: ${r.auto}` : `From the steps: ${r.auto}`}${r.hidden ? " · hidden" : ""}</small>
+              ${list ? "" : `<small>${r.extra ? "Extra part, not in any step" : r.edited ? `Automatic: ${r.auto}` : `From the steps: ${r.auto}`}${r.hidden ? " · hidden" : ""}</small>`}
             </span>
             ${r.hidden ? `<button class="btn secondary compact" data-show="${esc(r.id)}">Show</button>` : `
             <span class="qty">
@@ -490,9 +517,12 @@ async function renderBom(buildId, { picker = false } = {}) {
             ${r.edited ? `<button class="icon-btn small" data-reset="${esc(r.id)}" aria-label="Back to automatic count">↺</button>` : ""}
             <button class="icon-btn small remove" data-hide="${esc(r.id)}" aria-label="${r.extra ? "Remove part" : "Hide from materials"}">×</button>`}
           </li>`).join("")}</ul>` : ""}
-        <button class="btn secondary wide" id="add-extra">+ Add a part that is not in any step</button>
+        <button class="btn secondary wide" id="add-extra">${list ? `+ Choose parts from ${esc(kit)}` : "+ Add a part that is not in any step"}</button>
+        ${list ? `<button class="link" id="add-all" ${rows.length >= library.size ? "hidden" : ""}>Add all ${library.size} parts (×1 each)</button>` : ""}
       </section>
-      <footer class="actions"><a class="btn primary wide" href="#/build/${esc(buildId)}">Done</a></footer>`;
+      <footer class="actions">${list
+        ? `<a class="btn secondary" href="#/">Done</a><button class="btn primary" id="gen-list" ${pages.length ? "" : "disabled"}>Generate deck</button>`
+        : `<a class="btn primary wide" href="#/build/${esc(buildId)}">Done</a>`}</footer>`;
 
     const row = id => rows.find(r => r.id === id);
     const change = async (id, qty) => {
@@ -514,6 +544,15 @@ async function renderBom(buildId, { picker = false } = {}) {
     }));
     app.querySelectorAll("[data-show]").forEach(b => b.addEventListener("click", async () => { setOverride(build, b.dataset.show, { hidden: null }); await saveBuild(build); draw(); }));
     $("#add-extra").addEventListener("click", () => { location.hash = `${here}/parts`; });
+    if (list) {
+      $("#menu").addEventListener("click", () => buildMenu(build));
+      $("#gen-list").addEventListener("click", () => generate(build, 0));
+      $("#add-all")?.addEventListener("click", async () => {
+        for (const part of library.values()) if (!materials(build, library).some(r => r.id === part.id)) setExtra(build, part.id, 1);
+        await saveBuild(build);
+        draw();
+      });
+    }
   };
 
   draw();
@@ -521,8 +560,8 @@ async function renderBom(buildId, { picker = false } = {}) {
     const current = id => materials(build, library).find(r => r.id === id);
     partPicker({
       build, library, back: here,
-      title: "Add to materials",
-      subtitle: "Tap a part to add it to the Materials slide, tap again for more",
+      title: list ? "Choose parts" : "Add to materials",
+      subtitle: list ? "Tap a part to add it, tap again for more" : "Tap a part to add it to the Materials slide, tap again for more",
       count: id => { const r = current(id); return r && !r.hidden ? r.qty : 0; },
       add: id => {
         const r = current(id);

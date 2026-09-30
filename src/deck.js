@@ -4,6 +4,7 @@ import { loadParts } from "./library.js";
 
 // =============================================================================
 // SLIDE LAYOUT — same 1280 × 720 design-pixel system and colours as Lesson Foundry (app.py).
+// A parts list (build.kind === "bom") is just the Materials Required slides.
 // Deck: 1 cover (build name, grade, session) → 2 Materials Required (3 rows × 4 columns of part
 // cards; a 13th part continues on another slide) → the build steps from slide 3 → Thank You.
 // A step slide: "Step N" on the red bar, the instruction highlighted in yellow below it,
@@ -122,9 +123,13 @@ export function stepHeading(index) {
   return `Step ${index + 1}`;
 }
 
+/** A parts list is a standalone Materials Required deck: no cover, no steps, no Thank You. */
+export const isPartsList = build => build?.kind === "bom";
+
 export function deckFileName(build) {
   const name = build.name.replace(/[^A-Za-z0-9 _-]+/g, "-").trim().slice(0, 80) || "Build";
-  return `${name}_G${build.grade}_S${build.session}_v${build.deckVersion}.pptx`;
+  const where = build.grade && build.session ? `_G${build.grade}_S${build.session}` : "";
+  return `${name}${isPartsList(build) ? "_Materials" : ""}${where}_v${build.deckVersion}.pptx`;
 }
 
 // PowerPoint only shrinks text to fit once someone edits it, so long text is given a smaller
@@ -250,15 +255,19 @@ export async function buildDeck(build, onProgress = () => {}) {
   pptx.title = build.name;
   pptx.company = "ThinkPro Academy";
 
-  const cover = pptx.addSlide();
-  cover.background = { data: await background("bg1") };
-  text(cover, build.name, LAYOUT.cover.title, { fontSize: LAYOUT.cover.title.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
-  text(cover, `Grade ${build.grade} · Session ${build.session}`, LAYOUT.cover.subtitle, { fontSize: LAYOUT.cover.subtitle.size, color: SUBTITLE_COLOR, align: "center", valign: "middle" });
+  const partsOnly = isPartsList(build);
+  if (!partsOnly) {
+    const cover = pptx.addSlide();
+    cover.background = { data: await background("bg1") };
+    text(cover, build.name, LAYOUT.cover.title, { fontSize: LAYOUT.cover.title.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+    text(cover, `Grade ${build.grade} · Session ${build.session}`, LAYOUT.cover.subtitle, { fontSize: LAYOUT.cover.subtitle.size, color: SUBTITLE_COLOR, align: "center", valign: "middle" });
+  }
 
   const stepBackground = await background("bg2");
   const slideNumber = { x: IN(LAYOUT.slideNumber.x), y: IN(LAYOUT.slideNumber.y), w: IN(LAYOUT.slideNumber.w), h: IN(LAYOUT.slideNumber.h), fontFace: FONT_NAME, fontSize: LAYOUT.slideNumber.size, color: TEXT_COLOR, align: "right" };
 
   const pages = bomPages(bomRows(build, library));
+  if (partsOnly && !pages.length) throw new Error("Choose at least one part first.");
   for (const [page, rows] of pages.entries()) {
     const slide = pptx.addSlide();
     slide.background = { data: stepBackground };
@@ -278,7 +287,7 @@ export async function buildDeck(build, onProgress = () => {}) {
       });
     }
   }
-  for (const [index, step] of build.steps.entries()) {
+  for (const [index, step] of (partsOnly ? [] : build.steps).entries()) {
     const slide = pptx.addSlide();
     slide.background = { data: stepBackground };
     slide.slideNumber = slideNumber;
@@ -317,9 +326,11 @@ export async function buildDeck(build, onProgress = () => {}) {
     onProgress(index + 1, build.steps.length);
   }
 
-  const closing = pptx.addSlide();
-  closing.background = { data: await background("bg3") };
-  const t = LAYOUT.thankYou;
-  text(closing, t.text, t, { fontSize: t.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+  if (!partsOnly) {
+    const closing = pptx.addSlide();
+    closing.background = { data: await background("bg3") };
+    const t = LAYOUT.thankYou;
+    text(closing, t.text, t, { fontSize: t.size, color: RUST_COLOR, bold: true, align: "center", valign: "middle" });
+  }
   return pptx.write({ outputType: "blob", compression: true });
 }
