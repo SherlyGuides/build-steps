@@ -11,6 +11,8 @@ A phone-first web app for making ThinkPro **build instruction decks** (PowerPoin
    - from slide 3: one slide per step, with "Step N" on the red bar, the instruction highlighted in yellow, the part(s) on the left and the step photo on the right. Per step you can turn on the part name under the picture (16–28 pt, off by default) and set the part/photo split with a slider from ½ – ½ to ¼ – ¾; new steps copy the previous step's settings, and "Use this layout for all steps" applies them everywhere. The photo editor's "Slide" crop matches the step's photo area, so a wider split gets a wider photo
    - last slide: Thank You
 
+**On a laptop** the app uses the width: the step editor shows a large slide preview beside the controls, builds and steps are shown as grids, and the part picker and photo editor open as side-by-side panels. Drag photos onto a build to add them as steps, or onto a step (or paste one with ⌘V / Ctrl+V) to use it as that step's photo. ← / → move between steps and Esc closes the part picker. Phones keep the one-column layout.
+
 Builds are saved in the browser on the device they were made on. To edit a build later on another phone or laptop, or to keep a backup, use **⋯ → Save build file** and **Open build file**. On iPhone, add the app to the Home Screen (Share → Add to Home Screen) so Safari keeps its saved builds.
 
 Everything runs in the browser, and nothing is uploaded.

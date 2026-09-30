@@ -15,6 +15,43 @@ const MIN_GRADE = 1, MAX_GRADE = 9, MIN_SESSION = 1, MAX_SESSION = 30;
 const MAX_NAME = 80, MAX_INSTRUCTION = 200, LONG_INSTRUCTION = 110;
 
 const app = document.getElementById("app");
+
+// Laptops and desktops (mouse or trackpad): photos come from files, so labels say "Choose" not
+// "Take", and photos can also be dropped onto the page or pasted.
+const LAPTOP = matchMedia("(pointer: fine)").matches;
+const L = LAPTOP
+  ? { take: "Choose photo", retake: "Replace photo", addStep: "＋ Add step", nextStep: "＋ Next step", addFromGallery: "🖼 Add steps from photos" }
+  : { take: "Take photo", retake: "Retake photo", addStep: "📷 Add step", nextStep: "📷 Next step", addFromGallery: "🖼 Add steps from gallery" };
+
+// Listeners on document/window for the current screen only; route() removes them.
+let screenListeners = [];
+function onScreen(target, type, handler) {
+  target.addEventListener(type, handler);
+  screenListeners.push(() => target.removeEventListener(type, handler));
+}
+
+/** Image files from a drop or paste event. */
+function imageFiles(event) {
+  const items = [...(event.dataTransfer?.files ?? event.clipboardData?.files ?? [])];
+  return items.filter(file => file.type.startsWith("image/"));
+}
+
+/** Show a "drop here" outline while files are dragged over the window. */
+function dropTarget(label, onFiles) {
+  let depth = 0;
+  const show = on => document.body.classList.toggle("dropping", on);
+  document.body.dataset.dropLabel = label;
+  onScreen(window, "dragenter", e => { if ([...e.dataTransfer.types].includes("Files")) { depth++; show(true); } });
+  onScreen(window, "dragleave", () => { depth = Math.max(0, depth - 1); if (!depth) show(false); });
+  onScreen(window, "dragover", e => { if ([...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  onScreen(window, "drop", e => {
+    depth = 0; show(false);
+    const files = imageFiles(e);
+    if (!files.length) return;
+    e.preventDefault();
+    onFiles(files);
+  });
+}
 const esc = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const $ = selector => app.querySelector(selector);
 
@@ -236,11 +273,11 @@ async function renderBuild(buildId) {
         </li>`;
       }).join("")}</ol>`
       : `<div class="empty"><h2>Add the first step</h2><p>Photograph the model after the step, choose the part it uses from the ${esc(await kitName(build.kit))} list and type the instruction exactly as it should appear on the slide.</p></div>`}
-      <button class="btn secondary wide gallery-add" id="gallery-add">🖼 Add steps from gallery</button>
-      <p class="hint center">Select one or more photos: each becomes a step, in the order you select them.</p>
+      <button class="btn secondary wide gallery-add" id="gallery-add">${L.addFromGallery}</button>
+      <p class="hint center">Select one or more photos: each becomes a step, in the order you select them.${LAPTOP ? " You can also drag photos onto this page." : ""}</p>
     </section>
     <footer class="actions">
-      <button class="btn secondary" id="add">📷 Add step</button>
+      <button class="btn secondary" id="add">${L.addStep}</button>
       <button class="btn primary" id="generate" ${build.steps.length ? "" : "disabled"}>Generate deck</button>
     </footer>`;
 
@@ -255,6 +292,7 @@ async function renderBuild(buildId) {
   app.querySelectorAll("[data-down]").forEach(b => b.addEventListener("click", () => move(+b.dataset.down, +b.dataset.down + 1)));
   $("#add").addEventListener("click", () => addStep(build, build.steps.length));
   $("#gallery-add").addEventListener("click", () => addStepsFromGallery(build));
+  dropTarget("Drop photos to add them as new steps", files => addStepsFromGallery(build, files));
   $("#generate").addEventListener("click", () => generate(build, incomplete));
   $("#menu").addEventListener("click", () => buildMenu(build));
 }
@@ -291,8 +329,8 @@ async function addStep(build, at) {
 
 // One new step per selected photo, added at the end. Then the first of them opens with the
 // part list; ›› in the step editor moves on to the next.
-async function addStepsFromGallery(build) {
-  const files = await pickGalleryPhotos();
+async function addStepsFromGallery(build, dropped = null) {
+  const files = dropped ?? await pickGalleryPhotos();
   if (!files.length) return;
   const steps = [];
   try {
@@ -555,8 +593,8 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <h3>1 · Step photo</h3>
           ${step.photo ? `<button class="btn primary wide" id="edit-photo">✏️ Edit photo · crop, background, marks</button>` : ""}
           <div class="row">
-            <button class="btn ${step.photo ? "secondary" : "primary"}" id="camera">${step.photo ? "Retake photo" : "Take photo"}</button>
-            <button class="btn secondary" id="gallery">From gallery</button>
+            <button class="btn ${step.photo ? "secondary" : "primary"}" id="camera">${step.photo ? L.retake : L.take}</button>
+            ${LAPTOP ? "" : `<button class="btn secondary" id="gallery">From gallery</button>`}
           </div>
         </div>
 
@@ -617,7 +655,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
         </div>
       </section>
       <footer class="actions">
-        <button class="btn secondary" id="next-new">📷 Next step</button>
+        <button class="btn secondary" id="next-new">${L.nextStep}</button>
         <a class="btn primary" href="#/build/${esc(buildId)}">Done</a>
       </footer>`;
 
@@ -681,7 +719,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       }
     });
     $("#camera").addEventListener("click", () => setPhoto("camera"));
-    $("#gallery").addEventListener("click", () => setPhoto("gallery"));
+    $("#gallery")?.addEventListener("click", () => setPhoto("gallery"));
     $("#edit-photo")?.addEventListener("click", async () => {
       try {
         const next = await reEditPhoto(step.photo, MOVES[step.move] ? LAYOUT.moveAfter.w / LAYOUT.moveAfter.h : slideAspectOf(step));
@@ -757,9 +795,9 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     $("#next-new").addEventListener("click", () => { clearTimeout(typing); save(); addStep(build, index + 1); });
   };
 
-  const setPhoto = async source => {
+  const setPhoto = async (source, file = null) => {
     try {
-      const shot = await takePhoto(source);
+      const shot = file ? await preparePhoto(file) : await takePhoto(source);
       if (!shot) return;
       const old = step.photo;
       step.photo = await newPhoto(shot, { edit: true, slideAspect: MOVES[step.move] ? LAYOUT.moveAfter.w / LAYOUT.moveAfter.h : slideAspectOf(step) });
@@ -768,6 +806,14 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       await draw();
     } catch (error) { fail(error); }
   };
+
+  // Laptop: drop a photo onto the page, or paste one (⌘V / Ctrl+V), to use it for this step.
+  dropTarget(step.photo ? "Drop a photo to replace this step's photo" : "Drop a photo for this step", files => setPhoto(null, files[0]));
+  onScreen(document, "paste", e => {
+    if (e.target.closest?.("textarea, input")) return;
+    const [file] = imageFiles(e);
+    if (file) { e.preventDefault(); setPhoto(null, file); }
+  });
 
   await draw();
   if (picker) return partPicker({
@@ -879,6 +925,9 @@ async function route() {
   const path = location.hash.replace(/^#/, "");
   const parts = path.split("/").filter(Boolean);
   closePicker();
+  screenListeners.forEach(remove => remove());
+  screenListeners = [];
+  document.body.classList.remove("dropping");
   try {
     const stepKey = parts[0] === "build" && parts[2] === "step" ? `${parts[1]}/${parts[3]}` : null;
     // Leaving a step that was never filled in removes it again.
@@ -901,6 +950,17 @@ async function route() {
 }
 
 if ("serviceWorker" in navigator && !import.meta.env.DEV) navigator.serviceWorker.register("./sw.js").catch(() => {});
+
+// Keyboard: ← / → move between steps, Esc closes the part picker.
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  if (document.querySelector("dialog[open], .pe")) return;
+  if (e.key === "Escape" && document.querySelector(".picker")) { e.preventDefault(); history.back(); return; }
+  if (document.querySelector(".picker")) return;
+  const link = e.key === "ArrowLeft" ? app.querySelector('a[aria-label="Previous step"]:not(.off)')
+    : e.key === "ArrowRight" ? app.querySelector('a[aria-label="Next step"]:not(.off)') : null;
+  if (link) { e.preventDefault(); link.click(); }
+});
 
 window.addEventListener("hashchange", route);
 keepStorage();

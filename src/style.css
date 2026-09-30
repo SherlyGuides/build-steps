@@ -357,3 +357,72 @@ body.pe-open { overflow: hidden; }
 .split input { width: 100%; accent-color: var(--rust); padding: 0; min-height: 36px; border: 0; background: none; box-shadow: none; }
 .split-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 #layout-all { justify-self: start; font-size: 14px; }
+
+/* =============================================================================
+   Laptop and desktop (wide screens). Phones are unaffected.
+   ============================================================================= */
+
+/* Drag-and-drop outline (any screen size; only shown while files are dragged). */
+body.dropping::after {
+  content: attr(data-drop-label);
+  position: fixed; inset: 12px; z-index: 70;
+  display: grid; place-items: center;
+  border: 3px dashed var(--rust); border-radius: 20px;
+  background: rgb(251 248 243 / .88);
+  color: var(--rust); font-size: 22px; font-weight: 700;
+  pointer-events: none;
+}
+
+@media (min-width: 1024px) {
+  .bar { padding-left: max(24px, calc((100vw - 1280px) / 2 + 24px)); padding-right: max(24px, calc((100vw - 1280px) / 2 + 24px)); min-height: 68px; }
+  .bar h1 { font-size: 21px; }
+  .page { max-width: 1280px; padding: 28px 32px 120px; }
+  .actions { justify-content: center; padding-left: 32px; padding-right: 32px; }
+  .actions .btn { flex: 0 1 300px; }
+
+  /* Builds and steps as grids of cards */
+  .build-list { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+  .step-list { grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 14px; }
+  .step-thumb { width: 132px; height: 96px; }
+  .step-text { font-size: 15.5px; -webkit-line-clamp: 3; }
+  .gallery-add { max-width: 420px; margin-left: auto; margin-right: auto; display: flex; }
+
+  /* Step editor and BOM review: big preview on the left, controls on the right */
+  .editor { grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr); column-gap: 36px; row-gap: 22px; align-items: start; }
+  .editor > * { grid-column: 2; }
+  .editor > .preview, .editor > .bom-previews { grid-column: 1; grid-row: 1 / span 40; position: sticky; top: 96px; }
+  .editor > .hint { grid-column: 2; }
+  .slide { border-radius: 10px; }
+
+  /* Hover feedback for mouse users */
+  .btn.secondary:hover, .build-card:hover, .step-open:hover, .part:hover, .ai-card:hover, .onto-chip:hover, .pe-size button:hover { border-color: var(--orange); }
+  .btn.primary:hover { background: var(--rust-dark); }
+  .icon-btn:hover { background: rgb(0 0 0 / .05); }
+  .bar .icon-btn:hover { background: rgb(255 255 255 / .15); }
+
+  /* Part picker: a centred panel instead of a full-screen sheet */
+  .picker {
+    inset: 40px max(40px, calc(50vw - 600px));
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 0 0 100vmax rgb(27 36 45 / .45), 0 24px 60px rgb(0 0 0 / .3);
+  }
+  .picker .bar { padding-left: 16px; padding-right: 16px; }
+  .picker .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .picker .actions { position: static; }
+  .picker-body { padding-bottom: 20px; }
+
+  dialog { width: min(520px, calc(100vw - 32px)); }
+
+  /* Photo editor: photo on the left, tools in a side panel */
+  .pe {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "top top" "stage tabs" "stage panel";
+  }
+  .pe-top { grid-area: top; padding: 10px 20px; border-bottom: 1px solid #23282C; }
+  .pe-stage { grid-area: stage; padding: 20px; }
+  .pe-tabs { grid-area: tabs; border-top: 0; border-left: 1px solid #23282C; padding: 10px 12px 0; }
+  .pe-panel { grid-area: panel; border-left: 1px solid #23282C; overflow-y: auto; align-content: start; padding: 18px 20px; gap: 14px; }
+  .pe-tool:hover, .pe-chip:hover, .pe-tabs button:hover { background: rgb(255 255 255 / .08) !important; }
+}
