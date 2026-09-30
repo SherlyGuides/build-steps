@@ -1,4 +1,4 @@
-# Build Steps AI (instruction rephrasing)
+# BOM Designer AI (instruction rephrasing)
 
 `rephrase_proxy.py` gives the app's **✨ Improve with AI** button three rewrites of a step's
 instruction (Corrected, Clearer, Shorter), naming the part added and the part it goes onto, using Google Gemini (`gemini-3.5-flash-lite`, free

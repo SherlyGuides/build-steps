@@ -1,7 +1,7 @@
 {
-  "name": "Build Steps · ThinkPro Academy",
-  "short_name": "Build Steps",
-  "description": "Photograph each build step, pick its part and instruction, and generate the build instruction PowerPoint.",
+  "name": "BOM Designer · ThinkPro Academy",
+  "short_name": "BOM Designer",
+  "description": "Photograph each build step, pick its parts and instruction, and generate the build instruction PowerPoint, or just a parts list (BOM).",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

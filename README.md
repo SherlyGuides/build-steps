@@ -1,6 +1,6 @@
-# Build Steps
+# BOM Designer
 
-A phone-first web app for making ThinkPro **build instruction decks** (PowerPoint).
+A phone-first web app for making ThinkPro **build instruction decks** (PowerPoint) and standalone **parts lists (BOM)**.
 
 1. **New build**: enter the build name, grade and session.
 2. **📷 Add step**: take the photo of the step (or use **🖼 Add steps from gallery** to pick one or more saved photos; each becomes a step, in the order selected), choose the part(s) it uses from the parts list, and type the instruction exactly as it should read on the slide. Steps that only **flip over** or **turn around** the assembly need no part; their slide shows the previous step's photo (before) on the left and this step's photo (after) on the right.

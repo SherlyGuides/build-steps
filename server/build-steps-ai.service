@@ -1,5 +1,5 @@
 [Unit]
-Description=Build Steps AI (instruction rephrasing proxy for Gemini)
+Description=BOM Designer AI (instruction rephrasing proxy for Gemini)
 After=network-online.target
 Wants=network-online.target
 

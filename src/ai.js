@@ -1,4 +1,4 @@
-// "✨ Improve with AI": asks the Build Steps AI proxy (server/rephrase_proxy.py, on the
+// "✨ Improve with AI": asks the BOM Designer AI proxy (server/rephrase_proxy.py, on the
 // Lesson Foundry EC2 server) for three rewrites of a step's instruction that name both the part
 // being added and the part it goes onto (from the "Goes onto" choice, the earlier steps and the
 // step photo). The proxy holds the

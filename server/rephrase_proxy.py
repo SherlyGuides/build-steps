@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Steps: instruction rephrasing proxy (Google Gemini).
+"""BOM Designer: instruction rephrasing proxy (Google Gemini).
 
 The phone app sends one step's instruction, its parts, the parts added in the previous steps and
 (when there is one) the step photo here; this service asks Gemini for three instructions that say

@@ -177,7 +177,7 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--o
 }
 .part img { width: 100%; aspect-ratio: 1; object-fit: contain; }
 .part span { font-size: 12.5px; line-height: 1.25; }
-.part.chosen { border-color: var(--rust); background: #FFF6F1; }
+.part.picked { border-color: var(--rust); background: #FFF6F1; }
 .part .badge { position: absolute; top: 6px; right: 6px; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--rust); color: #fff; font-size: 13px; display: grid; place-items: center; }
 
 /* Dialogs */
@@ -430,3 +430,8 @@ body.dropping::after {
 /* Parts list */
 .tag { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--rust); background: #FFF0E8; border-radius: 6px; padding: 2px 7px; margin-right: 8px; vertical-align: 2px; }
 #add-all { justify-self: start; }
+
+/* Picker: take one away (44 px touch area, 28 px circle) */
+.part-minus { position: absolute; top: 0; left: 0; width: 44px; height: 44px; display: grid; place-items: center; cursor: pointer; }
+.part-minus i { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #fff; border: 1.5px solid var(--rust); color: var(--rust); font-style: normal; font-size: 18px; font-weight: 700; line-height: 1; }
+.part-minus:active i, .part-minus:hover i { background: #FDECEA; }

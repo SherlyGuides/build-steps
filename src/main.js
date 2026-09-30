@@ -182,7 +182,7 @@ async function renderHome() {
   const builds = await listBuilds();
   const names = Object.fromEntries((await loadKits()).map(k => [k.id, k.name]));
   app.innerHTML = `
-    <header class="bar"><div class="brand"><span class="mark"></span><div><h1>Build Steps</h1><p>Build instruction decks</p></div></div></header>
+    <header class="bar"><div class="brand"><span class="mark"></span><div><h1>BOM Designer</h1><p>Build guides and parts lists</p></div></div></header>
     <section class="page">
       ${builds.length ? `<ul class="build-list">${builds.map(b => `
         <li class="build-row"><a href="#/build/${esc(b.id)}${isPartsList(b) ? "/bom" : ""}" class="build-card">
@@ -570,6 +570,13 @@ async function renderBom(buildId, { picker = false } = {}) {
         else if (r.extra) setExtra(build, id, Math.min(999, r.qty + 1));
         else setOverride(build, id, { qty: Math.min(999, r.qty + 1) });
       },
+      remove: id => {
+        const r = current(id);
+        if (!r || r.hidden) return;
+        if (r.extra) setExtra(build, id, r.qty - 1);                       // 0 removes it
+        else if (r.qty > 1) setOverride(build, id, { qty: r.qty - 1 === r.auto ? null : r.qty - 1 });
+        else setOverride(build, id, { hidden: true });                     // a part from the steps is hidden, not deleted
+      },
     });
   }
 }
@@ -865,6 +872,12 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       if (chosen) chosen.qty = Math.min(99, chosen.qty + 1);
       else step.parts.push({ id, qty: 1 });
     },
+    remove: id => {
+      const chosen = step.parts.find(p => p.id === id);
+      if (!chosen) return;
+      if (chosen.qty > 1) chosen.qty -= 1;
+      else step.parts = step.parts.filter(p => p.id !== id);
+    },
   });
 }
 
@@ -903,8 +916,8 @@ function searchWords(text) {
   return text.toLowerCase().replace(/(\d)\s*[x×]\s*(?=\d)/g, "$1 x ").replace(/[^a-z0-9.]+/g, " ").split(" ").filter(Boolean);
 }
 
-/** count(id) → how many are chosen now (0 = none); add(id) records one more tap. */
-function partPicker({ build, library, back, title, subtitle, count, add }) {
+/** count(id) → how many are chosen now (0 = none); add(id) records one more tap; remove(id) takes one away. */
+function partPicker({ build, library, back, title, subtitle, count, add, remove }) {
   const used = new Set(build.steps.flatMap(s => s.parts.map(p => p.id)));
   const all = [...library.values()];
   const overlay = document.createElement("div");
@@ -922,13 +935,23 @@ function partPicker({ build, library, back, title, subtitle, count, add }) {
   const body = overlay.querySelector(".picker-body");
   const search = overlay.querySelector("input");
 
-  const tile = part => {
+  // The count badge and the − button; kept apart from the picture so a tap can update them in place.
+  const marks = part => {
     const chosen = count(part.id);
-    return `<button class="part ${chosen ? "chosen" : ""}" data-id="${esc(part.id)}">
+    return chosen ? `<b class="badge">${chosen}</b><span class="part-minus" role="button" tabindex="0" data-minus-id="${esc(part.id)}" aria-label="${chosen > 1 ? "One fewer" : "Remove"} ${esc(part.name)}"><i>${chosen > 1 ? "−" : "✕"}</i></span>` : "";
+  };
+  const tile = part => `<button class="part ${count(part.id) ? "picked" : ""}" data-id="${esc(part.id)}">
       <img src="${esc(part.file)}" alt="" loading="lazy">
-      <span>${esc(part.name)}</span>
-      ${chosen ? `<b class="badge">${chosen}</b>` : ""}
+      <span>${esc(part.name)}</span>${marks(part)}
     </button>`;
+  // After a tap, refresh only that part's tile(s): redrawing the grid would reload every picture.
+  const refreshTile = id => {
+    const part = library.get(id);
+    body.querySelectorAll(`[data-id="${CSS.escape(id)}"]`).forEach(el => {
+      el.classList.toggle("picked", !!count(id));
+      el.querySelectorAll(".badge, .part-minus").forEach(x => x.remove());
+      el.insertAdjacentHTML("beforeend", marks(part));
+    });
   };
   const draw = () => {
     const words = searchWords(search.value);
@@ -940,11 +963,22 @@ function partPicker({ build, library, back, title, subtitle, count, add }) {
       ${found.length ? `<div class="grid">${found.map(tile).join("")}</div>` : `<p class="empty">No part matches "${esc(search.value)}".</p>`}`;
   };
   body.addEventListener("click", async e => {
+    const minus = e.target.closest("[data-minus-id]");
+    if (minus) {
+      // One fewer; at 1 the part is removed. Does not also count as a tap on the tile.
+      e.stopPropagation();
+      const id = minus.dataset.minusId;
+      remove(id);
+      refreshTile(id);
+      await saveBuild(build);
+      return;
+    }
     const button = e.target.closest("[data-id]");
     if (!button) return;
-    add(button.dataset.id);
+    const id = button.dataset.id;
+    add(id);
+    refreshTile(id);
     await saveBuild(build);
-    draw();
   });
   search.addEventListener("input", draw);
   draw();
