@@ -35,9 +35,10 @@ export const LAYOUT = {
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
   // split (step.beforeSplit) from 10% – 90% to 90% – 10%, equal by default. See stepAreas().
   move: { y: 175, h: 465, defaultSplit: 0.5 },
-  // Label under each part picture: "Plate 2 x 2 - 2 Pieces" (name grey, count bold rust), up to
-  // two lines; the size is set per step.
-  partName: { sizes: [12, 14, 16, 20], default: 14, minSize: 9 },
+  // Label under each part picture: "Plate 2 x 2 - 2 Pieces" (name grey, count bold rust), just the
+  // name for a single piece; up to two lines. Per step: the size, and names can be turned off
+  // (then only "2 Pieces" is shown, and nothing for a single piece).
+  partName: { sizes: [14, 18, 20, 24], default: 18, minSize: 10 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
   // Materials slide: each part in its own outlined white card, picture centred with a soft shadow under
@@ -204,6 +205,32 @@ export function stepHeading(index) {
   return `Step ${index + 1}`;
 }
 
+// Design standards. Builds made before the current standard can switch every step to the current
+// defaults (parts 20% / photo 80%, part labels at the default size with names on) in one go.
+// Builds made from now on start on the current standard.
+export const DESIGN_VERSION = 2;
+
+/** Steps whose layout or label settings differ from the current defaults. */
+export function outdatedSteps(build) {
+  return (build?.steps ?? []).filter(step => !MOVES[step.move] && (
+    (step.split != null && step.split !== LAYOUT.split.default) ||
+    (step.partName?.size != null && step.partName.size !== LAYOUT.partName.default) ||
+    step.partName?.hideNames));
+}
+
+/** Whether to offer the update: an older build with steps that are not on the current defaults. */
+export const offerDesignUpdate = build => !isPartsList(build) && (build.designVersion ?? 1) < DESIGN_VERSION && outdatedSteps(build).length > 0;
+
+/** Put every step on the current defaults. Photos, parts, text and chosen layouts stay as they are. */
+export function applyDesignStandards(build) {
+  for (const step of build.steps) {
+    if (MOVES[step.move]) continue;
+    delete step.split;
+    delete step.partName;
+  }
+  build.designVersion = DESIGN_VERSION;
+}
+
 /** A parts list is a standalone Materials Required deck: no cover, no steps, no Thank You. */
 export const isPartsList = build => build?.kind === "bom";
 
@@ -277,6 +304,9 @@ export function stepAreas(step) {
  * Where the step photo goes. On a normal step it fills its area (the right 80% by default) as far
  * as its shape allows and sits against the right margin; other layouts centre it in their area.
  */
+// Shape assumed for a step that has no photo yet (a usual phone photo).
+export const DEFAULT_PHOTO = { w: 4, h: 3 };
+
 export function photoBox(step, photo) {
   if (isSinglePicture(step)) return fit(LAYOUT.single, photo.w, photo.h);
   const area = stepAreas(step).photo, box = fit(area, photo.w, photo.h);
@@ -287,13 +317,19 @@ export function photoBox(step, photo) {
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
 export function partNameStyle(step) {
   const size = LAYOUT.partName.sizes.includes(step?.partName?.size) ? step.partName.size : LAYOUT.partName.default;
-  return { show: true, size };
+  return { show: !step?.partName?.hideNames, size };
 }
 
 // A no-break space keeps "2 Pieces" on one line when the label wraps.
-export const pieceCount = qty => `${qty}\u00A0${qty === 1 ? "Piece" : "Pieces"}`;
-/** The label under a part on a step slide. */
-export const partLabel = (name, qty) => `${name} - ${pieceCount(qty)}`;
+export const pieceCount = qty => `${qty}\u00A0Pieces`;
+
+/** The label under a part as runs: [{ text, count? }]; empty when there is nothing to show. */
+export function partLabel(name, qty, names) {
+  const runs = names.show ? [{ text: qty > 1 ? `${name} - ` : name }] : [];
+  if (qty > 1) runs.push({ text: pieceCount(qty), count: true });
+  return runs;
+}
+export const labelText = runs => runs.map(r => r.text).join("");
 
 export function partCells(count, area = LAYOUT.parts) {
   const { cols, rows } = partsGrid(count);
@@ -304,18 +340,38 @@ export function partCells(count, area = LAYOUT.parts) {
 }
 
 /**
- * Where each part's picture and its label ("Plate 2 x 2 - 2 Pieces") go. The label sits directly
- * under the picture, so it stays with it however wide or tall the picture is.
+ * Where each part's picture and its label ("Plate 2 x 2 - 2 Pieces") go. Parts are stacked in one
+ * column; each label sits to the right of its picture, vertically centred on it, and may use the
+ * free space up to labelLimit (the left edge of the step photo). When that space is too narrow the
+ * picture gives up part of the column instead. Older steps with more than 3 parts keep the label
+ * under the picture.
  * parts: [{ part: { w, h, name }, qty }]
  */
-export function partLayout(parts, names, area = LAYOUT.parts) {
+export function partLayout(parts, names, area = LAYOUT.parts, labelLimit = area.x + area.w) {
   const cells = partCells(parts.length, area);
-  // Room for two lines of the chosen size (points -> design pixels, 1.2 line height).
-  const labelH = Math.ceil(names.size * 96 / 72 * 1.2 * 2) + 4;
+  const labels = parts.map(({ part, qty }) => partLabel(part.name, qty, names));
+  const labelled = labels.some(l => l.length);
+  if (parts.length > MAX_STEP_PARTS) {
+    // Label below: room for two lines of the chosen size (points -> design pixels, 1.2 line height).
+    const labelH = labelled ? Math.ceil(names.size * 96 / 72 * 1.2 * (names.show ? 2 : 1)) + 4 : 0;
+    return parts.map(({ part }, i) => {
+      const cell = cells[i], image = fit({ ...cell, h: cell.h - labelH }, part.w || 1, part.h || 1);
+      return { image, label: labels[i], labelBox: labels[i].length ? { x: cell.x, y: image.y + image.h + 2, w: cell.w, h: labelH } : null, align: "center" };
+    });
+  }
+  const gap = 14, minLabelW = 150;
+  const outside = labelLimit - (area.x + area.w);               // free space right of the column
+  const pictureW = !labelled || outside - gap >= minLabelW ? area.w : Math.max(area.w * 0.45, area.w - (minLabelW - Math.max(0, outside)));
   return parts.map(({ part }, i) => {
     const cell = cells[i];
-    const image = fit({ ...cell, h: cell.h - labelH }, part.w || 1, part.h || 1);
-    return { image, labelBox: { x: cell.x, y: image.y + image.h + 2, w: cell.w, h: labelH } };
+    const image = fit({ ...cell, w: Math.min(cell.w, pictureW) }, part.w || 1, part.h || 1);
+    image.x = cell.x;                                            // against the left margin
+    const x = image.x + image.w + gap, lineH = names.size * 96 / 72 * 1.2;
+    const h = Math.min(cell.h, Math.max(image.h, 3 * lineH + 4));
+    return {
+      image, label: labels[i], align: "left",
+      labelBox: labels[i].length ? { x, y: image.y + image.h / 2 - h / 2, w: Math.max(40, labelLimit - x), h } : null,
+    };
   });
 }
 
@@ -485,13 +541,13 @@ export async function buildDeck(build, onProgress = () => {}) {
       return part && { ...p, part: p.pic ? { ...part, w: p.pic.w, h: p.pic.h } : part };
     }).filter(Boolean);
     const names = partNameStyle(step, build);
-    const placed = partLayout(parts, names, areas.parts);
+    const placed = partLayout(parts, names, areas.parts, photoBox(step, step.photo ?? DEFAULT_PHOTO).x - 24);
     for (const [i, { part, qty, pic }] of parts.entries()) {
-      const { image, labelBox } = placed[i];
+      const { image, label, labelBox, align } = placed[i];
       const edited = pic && await getImage(pic.id);
       const picture = edited ? { dataUrl: await blobToDataUrl(edited) } : await partPicture(part);
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(image.x), y: IN(image.y), w: IN(image.w), h: IN(image.h), altText: part.name });
-      text(slide, [{ text: `${part.name} - ` }, { text: pieceCount(qty), options: { bold: true, color: RUST_COLOR } }], labelBox, { fontSize: fittedSize(partLabel(part.name, qty), labelBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align: "center", valign: "top" });
+      if (labelBox) text(slide, label.map(r => r.count ? { text: r.text, options: { bold: true, color: RUST_COLOR } } : { text: r.text }), labelBox, { fontSize: fittedSize(labelText(label), labelBox, names.size, LAYOUT.partName.minSize), color: SUBTITLE_COLOR, align, valign: align === "left" ? "middle" : "top" });
     }
 
     if (step.photo) {

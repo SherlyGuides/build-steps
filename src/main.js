@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MAX_STEP_PARTS, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, partLabel, pieceCount, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, DEFAULT_PHOTO, DESIGN_VERSION, LAYOUT, MAX_STEP_PARTS, applyDesignStandards, offerDesignUpdate, outdatedSteps, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, labelText, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -214,14 +214,14 @@ async function renderHome() {
   $("#new").addEventListener("click", async () => {
     const details = await detailsDialog(null);
     if (!details) return;
-    const build = { id: uid(), ...details, deckVersion: 1, steps: [], createdAt: Date.now() };
+    const build = { id: uid(), ...details, deckVersion: 1, designVersion: DESIGN_VERSION, steps: [], createdAt: Date.now() };
     await saveBuild(build);
     location.hash = `#/build/${build.id}`;
   });
   $("#new-list").addEventListener("click", async () => {
     const details = await detailsDialog(null, { list: true });
     if (!details) return;
-    const list = { id: uid(), kind: "bom", ...details, deckVersion: 1, steps: [], bom: { overrides: {}, extras: [] }, createdAt: Date.now() };
+    const list = { id: uid(), kind: "bom", ...details, deckVersion: 1, designVersion: DESIGN_VERSION, steps: [], bom: { overrides: {}, extras: [] }, createdAt: Date.now() };
     await saveBuild(list);
     // Straight to choosing parts.
     history.pushState(null, "", `#/build/${list.id}/bom`);
@@ -264,6 +264,10 @@ async function renderBuild(buildId) {
       <button class="icon-btn" id="menu" aria-label="Build options">⋯</button>
     </header>
     <section class="page">
+      ${offerDesignUpdate(build) ? `<div class="design-update">
+        <p><strong>New design standards</strong> ${outdatedSteps(build).length} step${outdatedSteps(build).length === 1 ? " uses" : "s use"} the older slide layout. Update to the latest: parts 20% / photo 80%, part names with piece counts at ${LAYOUT.partName.default} pt.</p>
+        <div><button class="btn primary compact" id="design-update">Update design to latest design standards</button><button class="link" id="design-keep">Keep my layout</button></div>
+      </div>` : ""}
       <a class="bom-card" href="#/build/${esc(build.id)}/bom">
         <span class="bom-head"><strong>Materials required</strong><span>Slide 2${bomPages(bom, bomGrid(build)).length > 1 ? `–${bomPages(bom, bomGrid(build)).length + 1}` : ""}</span></span>
         ${bom.length ? `<span class="bom-thumbs">${bom.slice(0, 6).map(r => `<span><img src="${esc(r.part.file)}" alt=""><b>${r.qty}</b></span>`).join("")}${bom.length > 6 ? `<em>+${bom.length - 6}</em>` : ""}</span>
@@ -313,6 +317,12 @@ async function renderBuild(buildId) {
   dropTarget("Drop photos to add them as new steps", files => addStepsFromGallery(build, files));
   $("#generate").addEventListener("click", () => generate(build, incomplete));
   $("#menu").addEventListener("click", () => buildMenu(build));
+  $("#design-update")?.addEventListener("click", async () => { if (await updateDesign(build)) renderBuild(build.id); });
+  $("#design-keep")?.addEventListener("click", async () => {
+    build.designVersion = DESIGN_VERSION;   // stop asking; the update stays in the ⋯ menu
+    await saveBuild(build);
+    renderBuild(build.id);
+  });
 }
 
 // Called straight from a tap: the camera opens first (browsers only allow that from a tap),
@@ -380,19 +390,34 @@ async function addStepsFromGallery(build, dropped = null) {
   location.hash = `${editor}/parts`;
 }
 
+/** Ask, then put every step of the build on the current design defaults. Resolves true if done. */
+async function updateDesign(build) {
+  const count = outdatedSteps(build).length;
+  if (!(await confirmDialog("Update design to latest design standards?",
+    `${count} step${count === 1 ? "" : "s"} will change to the latest layout: parts take 20% of the width and the photo 80%, and each part shows its name and piece count at ${LAYOUT.partName.default} pt. Photos, parts and instructions stay the same. You can still adjust any step afterwards.`,
+    "Update design", false))) return false;
+  applyDesignStandards(build);
+  await saveBuild(build);
+  toast("Design updated to the latest standards.");
+  return true;
+}
+
 async function buildMenu(build) {
   const list = isPartsList(build);
   const choice = await dialog(`
     <h2>${esc(build.name)}</h2>
     <div class="menu">
       <button class="btn secondary" data-choice="details">${list ? "Edit name, grade, session" : "Edit name, grade, session"}</button>
+      ${list || !outdatedSteps(build).length ? "" : `<button class="btn secondary" data-choice="design">Update design to latest design standards</button>`}
       <button class="btn secondary" data-choice="export">Save ${list ? "list" : "build"} file (backup / another device)</button>
       <button class="btn danger-ghost" data-choice="delete">Delete ${list ? "BOM" : "build"}</button>
     </div>
     <div class="dialog-actions"><button class="btn ghost" data-close>Close</button></div>`,
   (el, close) => el.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => close(b.dataset.choice))));
 
-  if (choice === "details") {
+  if (choice === "design") {
+    if (await updateDesign(build)) renderBuild(build.id);
+  } else if (choice === "details") {
     const details = await detailsDialog(build);
     if (!details) return;
     Object.assign(build, details);
@@ -672,7 +697,7 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
     return { ...p, part: p.pic && picSrcs[p.id] ? { ...part, file: picSrcs[p.id], w: p.pic.w, h: p.pic.h } : part };
   }).filter(Boolean);
   const areas = stepAreas(step), names = partNameStyle(step, build);
-  const placed = partLayout(parts, names, areas.parts);
+  const placed = partLayout(parts, names, areas.parts, photoBox(step, step.photo ?? DEFAULT_PHOTO).x - 24);
   return `<div class="slide" aria-label="Slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(stepHeading(index))}</div>
     <div class="s-instruction" style="${box(LAYOUT.instruction)};${fontSize(fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, LAYOUT.instruction.minSize))}">${step.instruction.trim() ? `<mark>${esc(step.instruction.trim())}</mark>` : ""}</div>
@@ -680,9 +705,9 @@ function slidePreview(build, step, index, library, photoSrc, beforeSrc, leftSrc,
     ${move && !left && !single ? (beforeSrc ? `<img class="s-photo" src="${beforeSrc}" style="${box(fit(areas.parts, build.steps[index - 1].photo.w, build.steps[index - 1].photo.h))}" alt="">`
       : `<div class="s-photo-empty" style="${box(areas.parts)}">${index ? "Previous step has no photo" : "Before"}</div>`) : ""}
     ${parts.map(({ part, qty }, i) => {
-      const { image, labelBox } = placed[i];
+      const { image, label, labelBox, align } = placed[i];
       return `<img class="s-part" src="${esc(part.file)}" style="${box(image)}" alt="">
-        <div class="s-name" style="${box(labelBox)};${fontSize(fittedSize(partLabel(part.name, qty), labelBox, names.size, LAYOUT.partName.minSize))}">${esc(part.name)} - <b>${pieceCount(qty)}</b></div>`;
+        ${labelBox ? `<div class="s-name ${align === "left" ? "s-name-right" : ""}" style="${box(labelBox)};${fontSize(fittedSize(labelText(label), labelBox, names.size, LAYOUT.partName.minSize))}">${label.map(r => r.count ? `<b>${esc(r.text)}</b>` : esc(r.text)).join("")}</div>` : ""}`;
     }).join("")}
     ${photoSrc ? `<img class="s-photo" src="${photoSrc}" style="${box(photoBox(step, step.photo))}" alt="">`
       : `<div class="s-photo-empty" style="${box(single ? LAYOUT.single : areas.photo)}">${move && !single ? "Photo after the move" : "Step photo"}</div>`}
@@ -766,7 +791,8 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
           <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
           <div id="ai-out" class="ai-out" aria-live="polite"></div>
           ${MOVES[step.move] ? "" : `
-          <p class="hint">Under each part: its name and how many pieces, e.g. "Plate 2 x 2 - 2 Pieces". Label size:</p>
+          <label class="switch"><input type="checkbox" id="pn-show" ${partNameStyle(step).show ? "checked" : ""}><span></span> Show part names next to the pictures</label>
+          <p class="hint">Next to each part: "Plate 2 x 2 - 2 Pieces", or just the name for a single piece. With names off, only "2 Pieces" is shown. Label size:</p>
           <div class="pe-size" id="pn-sizes" role="radiogroup" aria-label="Part label size">
             ${LAYOUT.partName.sizes.map((pt, i) => `<button role="radio" aria-checked="${partNameStyle(step, build).size === pt}" data-pn-size="${pt}">${["Small", "Medium", "Large", "Extra large"][i]} <small>${pt} pt</small></button>`).join("")}
           </div>`}
@@ -934,14 +960,18 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
       });
       $("#split").addEventListener("change", () => save());
       $("#layout-all")?.addEventListener("click", async () => {
-        if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split and part labels at ${partNameStyle(step, build).size} pt.`, "Apply to all", false))) return;
-        for (const other of build.steps) { other.split = step.split; other.partName = { ...partNameStyle(step, build) }; }
+        if (!(await confirmDialog("Use this layout for every step?", `All ${build.steps.length} steps get this part/photo split and part labels at ${partNameStyle(step).size} pt${partNameStyle(step).show ? "" : ", without part names"}.`, "Apply to all", false))) return;
+        for (const other of build.steps) { other.split = step.split; other.partName = { ...step.partName }; }
         await save();
         toast("Layout applied to all steps.");
       });
     }
+    $("#pn-show")?.addEventListener("change", async e => {
+      step.partName = { ...step.partName, hideNames: !e.target.checked || undefined };
+      await save(); refreshPreview();
+    });
     app.querySelectorAll("[data-pn-size]").forEach(b => b.addEventListener("click", async () => {
-      step.partName = { show: true, size: Number(b.dataset.pnSize) };
+      step.partName = { ...step.partName, size: Number(b.dataset.pnSize) };
       app.querySelectorAll("[data-pn-size]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
       await save(); refreshPreview();
     }));

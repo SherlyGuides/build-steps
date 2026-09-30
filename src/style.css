@@ -135,6 +135,7 @@ a { color: inherit; text-decoration: none; }
 .s-part, .s-photo, .s-move { object-fit: contain; }
 .s-name { color: #4B4B4B; text-align: center; line-height: 1.2; }
 .s-name b { color: var(--rust); font-weight: 700; }
+.s-name-right { text-align: left; display: flex; align-items: center; }
 .s-photo-empty { display: grid; place-items: center; border: 2px dashed #D5CCBE; border-radius: 1.5cqw; color: #A89E91; font-size: 3cqw; }
 
 .field { display: grid; gap: 10px; }
@@ -225,6 +226,10 @@ button, a, .part, .step-open { touch-action: manipulation; user-select: none; -w
 @media (display-mode: standalone) { .bar { padding-top: max(env(safe-area-inset-top), 12px); } }
 
 /* Materials (BOM) */
+.design-update { display: grid; gap: 10px; padding: 14px; margin-bottom: 14px; border-radius: var(--radius); background: var(--warn-bg); border: 1px solid #F1D9A6; }
+.design-update p { margin: 0; font-size: 14px; line-height: 1.4; }
+.design-update strong { display: block; font-size: 15px; margin-bottom: 2px; }
+.design-update div { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .bom-card {
   display: grid; gap: 8px; padding: 14px; margin-bottom: 18px;
   background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--rust); border-radius: var(--radius);
