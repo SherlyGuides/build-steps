@@ -40,16 +40,20 @@ export const LAYOUT = {
   quantity: { size: 24 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
-  // Materials slide ("Clean cards"): white cards, picture centred, part name below it,
-  // a rust count circle with a white ring on the picture's top-right corner.
+  // Materials slide: white cards on a light cream page, picture centred with a soft shadow under
+  // it, part name below, and a light orange "x 3" label in the card's top-right corner.
   bom: {
     heading: "Materials Required",
+    background: "bg2-warm",
     area: { x: 70, y: 98, w: 1140, h: 544 },
     cols: 4, rows: 3, gap: 16,   // the default grid; each build can choose another (build.bomGrid)
     cardRadius: 0.08, cardBorder: "E6DDCF",
-    picturePad: { side: 34, top: 14, bottom: 8 },
+    picturePad: { side: 30, top: 26, bottom: 10 },
     name: { h: 40, size: 12, minSize: 9, pad: 8 },       // up to two lines
-    badge: { d: 36, ring: 2, size: 14 },
+    count: { h: 32, pad: 11, inset: 8, size: 14, color: "F0965F" },
+    // Soft oval under the part: width and height relative to the part's visible width; room below
+    // the picture for it (extra), relative to the picture's width.
+    shadow: { width: 0.9, height: 0.18, alpha: 0.3, extra: 0.06 },
   },
 };
 
@@ -108,28 +112,35 @@ export function bomHeading(page, pageCount) {
   return pageCount > 1 ? `${LAYOUT.bom.heading} (${page + 1}/${pageCount})` : LAYOUT.bom.heading;
 }
 
-/** Card, picture, name and count-circle boxes for the i-th part on a Materials slide. */
-export function bomCell(i, part, grid = bomGrid(null)) {
+/** Card, picture, name and count-label boxes for the i-th part on a Materials slide. */
+export function bomCell(i, part, grid = bomGrid(null), qty = 1) {
   const b = LAYOUT.bom, p = b.picturePad, { cols, rows } = grid;
   const gap = cols * rows > 12 ? 12 : b.gap;
   const w = (b.area.w - gap * (cols - 1)) / cols, h = (b.area.h - gap * (rows - 1)) / rows;
-  // Padding, name, circle and text scale with the card, relative to the approved 4 × 3 card.
+  // Padding, name, count label and text scale with the card, relative to the approved 4 × 3 card.
   const baseW = (b.area.w - b.gap * (b.cols - 1)) / b.cols, baseH = (b.area.h - b.gap * (b.rows - 1)) / b.rows;
   const k = Math.min(1.7, Math.max(0.62, Math.min(w / baseW, h / baseH)));
   const card = { x: b.area.x + (i % cols) * (w + gap), y: b.area.y + Math.floor(i / cols) * (h + gap), w, h };
   const namePad = b.name.pad * k, nameH = b.name.h * k;
   const name = { x: card.x + namePad, y: card.y + h - nameH - 4 * k, w: w - 2 * namePad, h: nameH };
   const side = Math.min(p.side * k, w * 0.14), top = p.top * k;
-  const picture = fit({ x: card.x + side, y: card.y + top, w: w - 2 * side, h: name.y - p.bottom * k - (card.y + top) }, part.w || 1, part.h || 1);
-  // Circle centred on the picture's top-right corner, kept inside the card.
-  const d = b.badge.d * k, r = d / 2;
-  const cx = Math.min(picture.x + picture.w + 4 * k, card.x + w - r - 6 * k), cy = Math.max(picture.y + 6 * k, card.y + r + 6 * k);
+  // The picture box includes room under the part for its shadow; part is the picture itself.
+  const pw = part.w || 1, ph = part.h || 1;
+  const picture = fit({ x: card.x + side, y: card.y + top, w: w - 2 * side, h: name.y - p.bottom * k - (card.y + top) }, pw, ph + b.shadow.extra * pw);
+  const partBox = { ...picture, h: picture.w * ph / pw };
+  // "x 3" label in the card's top-right corner.
+  const c = b.count, label = countLabel(qty);
+  const countSize = Math.round(c.size * k * 2) / 2, countH = c.h * k;
+  const countW = 2 * c.pad * k + label.length * countSize * 96 / 72 * 0.56;
   return {
-    card, picture, name, badge: { x: cx - r, y: cy - r, w: d, h: d },
+    card, picture, part: partBox, name,
+    count: { x: card.x + w - c.inset * k - countW, y: card.y + c.inset * k, w: countW, h: countH },
     nameSize: Math.round(b.name.size * k * 2) / 2, nameMin: Math.max(7, b.name.minSize * Math.min(1, k)),
-    badgeSize: Math.round(b.badge.size * k), ring: Math.max(1, b.badge.ring * k),
+    countSize,
   };
 }
+
+export const countLabel = qty => `x ${qty}`;
 
 const IN = v => v / 96; // design pixels → inches (13.333 × 7.5 in wide layout)
 
@@ -268,6 +279,47 @@ async function partPicture(part) {
   return partCache.get(part.file);
 }
 
+// Library pictures are on white. For the Materials slide each one is redrawn with a soft oval
+// shadow under the part (found by scanning for non-white pixels) and room below for it.
+const shadowCache = new Map();
+async function shadowedPicture(part) {
+  if (!shadowCache.has(part.file)) {
+    const img = await createImageBitmap(await (await fetch(part.file)).blob());
+    const { width: w, height: h } = img, sh = LAYOUT.bom.shadow;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h + Math.round(sh.extra * w);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, w, h).data;
+    let left = w, right = 0, bottom = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (Math.min(pixels[i], pixels[i + 1], pixels[i + 2]) < 245) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+        if (y > bottom) bottom = y;
+      }
+    }
+    if (right < left) { left = 0; right = w; bottom = h; }
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const rx = (right - left) * sh.width / 2, ry = (right - left) * sh.height / 2;
+    ctx.save();
+    ctx.translate((left + right) / 2, bottom);
+    ctx.scale(1, ry / rx);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    glow.addColorStop(0, `rgba(70, 50, 30, ${sh.alpha})`);
+    glow.addColorStop(0.55, `rgba(70, 50, 30, ${sh.alpha * 0.45})`);
+    glow.addColorStop(1, "rgba(70, 50, 30, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(-rx, -rx, 2 * rx, 2 * rx);
+    ctx.restore();
+    ctx.globalCompositeOperation = "multiply";   // the white around the part lets the shadow through
+    ctx.drawImage(img, 0, 0);
+    shadowCache.set(part.file, { dataUrl: canvas.toDataURL("image/png") });
+  }
+  return shadowCache.get(part.file);
+}
 
 async function background(name) {
   return pptxData(await blobToDataUrl(await (await fetch(`slides/${name}.jpg`)).blob()));
@@ -301,22 +353,23 @@ export async function buildDeck(build, onProgress = () => {}) {
   const grid = bomGrid(build);
   const pages = bomPages(bomRows(build, library), grid);
   if (partsOnly && !pages.length) throw new Error("Choose at least one part first.");
+  const bomBackground = pages.length ? await background(LAYOUT.bom.background) : null;
   for (const [page, rows] of pages.entries()) {
     const slide = pptx.addSlide();
-    slide.background = { data: stepBackground };
+    slide.background = { data: bomBackground };
     slide.slideNumber = slideNumber;
     text(slide, bomHeading(page, pages.length), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
     for (const [i, { part, qty }] of rows.entries()) {
-      const cell = bomCell(i, part, grid);
-      const picture = await partPicture(part);
+      const cell = bomCell(i, part, grid, qty);
+      const picture = await shadowedPicture(part);
       const b = LAYOUT.bom;
       slide.addShape(pptx.ShapeType.roundRect, { x: IN(cell.card.x), y: IN(cell.card.y), w: IN(cell.card.w), h: IN(cell.card.h), rectRadius: b.cardRadius, fill: { color: "FFFFFF" }, line: { color: b.cardBorder, width: 0.75 } });
       slide.addImage({ data: pptxData(picture.dataUrl), x: IN(cell.picture.x), y: IN(cell.picture.y), w: IN(cell.picture.w), h: IN(cell.picture.h), altText: part.name });
       text(slide, part.name, cell.name, { fontSize: fittedSize(part.name, cell.name, cell.nameSize, cell.nameMin), color: TEXT_COLOR, align: "center", valign: "middle" });
-      slide.addText(String(qty), {
-        shape: pptx.ShapeType.ellipse, x: IN(cell.badge.x), y: IN(cell.badge.y), w: IN(cell.badge.w), h: IN(cell.badge.h),
-        fill: { color: RUST_COLOR }, line: { color: "FFFFFF", width: cell.ring },
-        fontFace: FONT_NAME, fontSize: qty > 99 ? cell.badgeSize - 3 : cell.badgeSize, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0,
+      slide.addText(countLabel(qty), {
+        shape: pptx.ShapeType.roundRect, rectRadius: IN(cell.count.h) / 2, x: IN(cell.count.x), y: IN(cell.count.y), w: IN(cell.count.w), h: IN(cell.count.h),
+        fill: { color: b.count.color }, line: { type: "none" },
+        fontFace: FONT_NAME, fontSize: cell.countSize, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0,
       });
     }
   }

@@ -1,8 +1,8 @@
 // Keeps the app usable without a connection once it has been opened.
 // Pages load from the network first (so updates arrive), everything else from the cache first.
-const CACHE = "build-steps-v4";
+const CACHE = "build-steps-v5";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./library/kits.json", "./library/xplorer/parts.json",
-  "./slides/bg1.jpg", "./slides/bg2.jpg", "./slides/bg3.jpg", "./slides/flip.svg", "./slides/turn.svg", "./icon-192.png"];
+  "./slides/bg1.jpg", "./slides/bg2.jpg", "./slides/bg2-warm.jpg", "./slides/bg3.jpg", "./slides/flip.svg", "./slides/turn.svg", "./icon-192.png"];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));

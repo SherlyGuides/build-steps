@@ -245,7 +245,10 @@ button, a, .part, .step-open { touch-action: manipulation; user-select: none; -w
 .bom-previews { display: grid; gap: 12px; }
 .s-card { background: #fff; border: 1px solid #E6DDCF; border-radius: 1cqw; }
 .s-bom-name { line-height: 1.15; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; color: #111; }
-.s-badge { display: grid; place-items: center; border-radius: 50%; background: var(--rust); color: #fff; font-weight: 700; box-shadow: 0 0 0 .18cqw #fff; line-height: 1; }
+.bom-slide { background-image: url(../slides/bg2-warm.jpg); }
+.s-shadow { background: radial-gradient(closest-side, rgb(70 50 30 / .3), rgb(70 50 30 / .135) 55%, rgb(70 50 30 / 0)); }
+.s-bom-part { mix-blend-mode: multiply; }
+.s-count { display: grid; place-items: center; border-radius: 999px; background: #F0965F; color: #fff; font-weight: 700; line-height: 1; white-space: nowrap; }
 .bom-rows .name small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .bom-rows .hidden-row { opacity: .55; }
 .bom-rows .hidden-row img { filter: grayscale(1); }

@@ -1,6 +1,6 @@
 import { deleteBuild, deleteImage, getBuild, getImage, keepStorage, listBuilds, photoImageIds, putImage, saveBuild, stepImageIds, uid } from "./db.js";
 import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
-import { BOM_GRIDS, LAYOUT, MOVES, bomCell, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
+import { BOM_GRIDS, LAYOUT, MOVES, bomCell, countLabel, bomGrid, fittedSize, isSinglePicture, partNameStyle, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
 import { kitName, loadKits, loadParts } from "./library.js";
@@ -457,15 +457,23 @@ async function generate(build, incomplete) {
 // Review & edit BOM
 // ---------------------------------------------------------------------------
 
+// Preview only: the shadow under a part, placed from the usual white margin of the library
+// pictures (about 5.5% each side, 6.7% below). The deck finds the exact edges.
+function partShadow(p) {
+  const sh = LAYOUT.bom.shadow, visible = p.w * 0.89, w = visible * sh.width, h = visible * sh.height;
+  return { x: p.x + (p.w - w) / 2, y: p.y + p.h * 0.933 - h / 2, w, h };
+}
+
 function bomSlidePreview(rows, page, pageCount, grid) {
-  return `<div class="slide" aria-label="Materials slide preview">
+  return `<div class="slide bom-slide" aria-label="Materials slide preview">
     <div class="s-heading" style="${box(LAYOUT.heading)};${fontSize(LAYOUT.heading.size)}">${esc(bomHeading(page, pageCount))}</div>
     ${rows.map(({ part, qty }, i) => {
-      const c = bomCell(i, part, grid);
+      const c = bomCell(i, part, grid, qty);
       return `<div class="s-card" style="${box(c.card)}"></div>
-        <img class="s-part" src="${esc(part.file)}" style="${box(c.picture)}" alt="">
+        <div class="s-shadow" style="${box(partShadow(c.part))}"></div>
+        <img class="s-part s-bom-part" src="${esc(part.file)}" style="${box(c.part)}" alt="">
         <div class="s-bom-name" style="${box(c.name)};${fontSize(fittedSize(part.name, c.name, c.nameSize, c.nameMin))}">${esc(part.name)}</div>
-        <div class="s-badge" style="${box(c.badge)};${fontSize(qty > 99 ? c.badgeSize - 3 : c.badgeSize)}">${qty}</div>`;
+        <div class="s-count" style="${box(c.count)};${fontSize(c.countSize)}">${esc(countLabel(qty))}</div>`;
     }).join("")}
     ${rows.length ? "" : `<div class="s-photo-empty" style="${box(LAYOUT.bom.area)}">Parts chosen in the steps appear here</div>`}
   </div>`;
