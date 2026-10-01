@@ -300,18 +300,15 @@ export function stepAreas(step) {
   };
 }
 
-/**
- * Where the step photo goes. On a normal step it fills its area (the right 80% by default) as far
- * as its shape allows and sits against the right margin; other layouts centre it in their area.
- */
 // Shape assumed for a step that has no photo yet (a usual phone photo).
 export const DEFAULT_PHOTO = { w: 4, h: 3 };
 
+/**
+ * Where the step photo goes: as large as its shape allows inside its area, centred in that area
+ * (the right 80% by default, so its middle is at 60% of the content width, not the slide's middle).
+ */
 export function photoBox(step, photo) {
-  if (isSinglePicture(step)) return fit(LAYOUT.single, photo.w, photo.h);
-  const area = stepAreas(step).photo, box = fit(area, photo.w, photo.h);
-  if (MOVES[step?.move]) return box;
-  return { ...box, x: area.x + area.w - box.w };
+  return fit(isSinglePicture(step) ? LAYOUT.single : stepAreas(step).photo, photo.w, photo.h);
 }
 
 /** Whether to print part names on this step, and at what size (pt). Old builds had one build-wide switch. */
@@ -323,7 +320,7 @@ export function partNameStyle(step) {
 
 /** The label under a part as runs: [{ text, count? }]; empty when there is nothing to show. */
 export function partLabel(name, qty, names) {
-  const runs = names.show ? [{ text: qty > 1 ? `${name}\u00A0- ` : name }] : [];   // no-break space keeps "- 2" together
+  const runs = names.show ? [{ text: qty > 1 ? `${name}\u00A0-\u00A0` : name }] : [];   // no-break spaces keep "Holder - 2" together
   if (qty > 1) runs.push({ text: names.show ? String(qty) : countLabel(qty).replace(" ", "\u00A0"), count: true });
   return runs;
 }
