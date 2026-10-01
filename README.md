@@ -15,7 +15,7 @@ A phone-first web app for making ThinkPro **build instruction decks** (PowerPoin
 
 **Materials grid:** on the Materials screen of a build or a BOM Designer list, choose the grid (2×2, 3×2, 3×3, 4×3, 5×3, 5×4 or 6×4, i.e. 4 to 24 parts per slide); cards, pictures, names and count labels scale to fit. **Page** sets the colour behind the cards (White, Cream, Sand or Peach), and **Parts** switches between one picture with its count and **Show every piece** (the part drawn once per piece, up to 6). Tap a part's name (✎) to rename it for that build only; the new name is used on the Materials and step slides, and "Use library name" undoes it.
 
-**Per step, on the slide:** a **custom left picture** (replaces the part pictures, or the before photo on a flip/turn step), a **One picture, centred** layout (just the step photo), and **✏️ edit a part's picture** (mirror, rotate, crop, marks…) for that slide only; the BOM keeps the library picture. In the photo editor, arrows, circles and boxes stay editable: tap one to resize it with its handles, move it, or change its colour and thickness. Step instructions are 24 pt.
+**Per step, on the slide:** a **custom left picture** (replaces the part pictures, or the before photo on a flip/turn step), a **One picture, centred** layout (just the step photo), and **✏️ edit a part's picture** (mirror, rotate, crop, marks…) for that slide only; the BOM keeps the library picture. In the photo editor, arrows, circles, boxes and text labels stay editable: tap one to resize it with its handles (or edit its text), move it, or change its colour and size. Step instructions are 24 pt.
 
 **On a laptop** the app uses the width: the step editor shows a large slide preview beside the controls, builds and steps are shown as grids, and the part picker and photo editor open as side-by-side panels. Drag photos onto a build to add them as steps, or onto a step (or paste one with ⌘V / Ctrl+V) to use it as that step's photo. ← / → move between steps and Esc closes the part picker. Phones keep the one-column layout.
 
@@ -25,7 +25,7 @@ Everything runs in the browser, and nothing is uploaded.
 
 ## Photo editor
 
-After a photo is taken (or with **✏️ Edit photo** on any step) a full editor opens: crop with presets (Free, Slide, 1:1, 4:3, 3:4), rotate, mirror, straighten, **remove background**, adjust (Auto, brightness, contrast, saturation, warmth, whites, sharpen) and mark (arrows, circles and boxes in four colours). The original photo is kept, so edits can be changed later without losing quality.
+After a photo is taken (or with **✏️ Edit photo** on any step) a full editor opens: crop with presets (Free, Slide, 1:1, 4:3, 3:4), rotate, mirror, straighten, **remove background**, adjust (Auto, brightness, contrast, saturation, warmth, whites, sharpen) and mark (arrows, circles, boxes and text labels such as "5 studs", in five colours). The original photo is kept, so edits can be changed later without losing quality.
 
 **Background removal** runs on the phone with [ISNet](https://github.com/xuebinqin/DIS) (via [transformers.js](https://huggingface.co/docs/transformers.js)). The model is downloaded once from Hugging Face: 84 MB on phones whose browser has a GPU with 16-bit support (under a second per photo), 42 MB otherwise (processor only, about 20–40 seconds). Erase and Restore brushes fix anything the model gets wrong.
 

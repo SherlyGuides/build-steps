@@ -311,6 +311,8 @@ body.pe-open { overflow: hidden; }
 .pe-colors { display: flex; gap: 10px; }
 .pe-color { width: 32px; height: 32px; border-radius: 50%; box-shadow: 0 0 0 2px #262B2F; }
 .pe-color.on { box-shadow: 0 0 0 2px #111416, 0 0 0 4px #fff; }
+.pe-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1.5px solid #3A4046; background: #1B1F22; color: #F2EDE6; font-size: 16px; }
+.pe-input:focus { outline: none; border-color: #EF7D37; }
 .pe-hint { font-size: 12.5px; color: #938B80; text-align: center; line-height: 1.4; }
 .pe-big { width: 100%; min-height: 52px; border-radius: 14px; background: #fff !important; color: #111 !important; font-weight: 700 !important; font-size: 16px !important; }
 .pe-tabs { display: flex; padding: 4px 8px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid #23282C; }

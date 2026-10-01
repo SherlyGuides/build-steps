@@ -1,13 +1,14 @@
 // Photo editor for step photos: crop, rotate, straighten, adjust, and mark (arrows, circles,
-// boxes). Edits never touch the original; the photo on the slide is rendered from
+// boxes, text labels such as "5 studs"). Edits never touch the original; the photo on the slide is rendered from
 // original + edits, so a photo can be re-edited any time without losing quality.
 //
 // edits = {
 //   rotate: 0 | 90 | 180 | 270, flip: bool, straighten: -15..15 (degrees),
 //   crop: { x, y, w, h } (0–1, in the rotated picture) | null,
 //   adjust: { brightness, contrast, saturation, warmth, whites, sharpen, lo, hi },
-//   marks: [{ type: "arrow" | "circle" | "box", color, size, x1, y1, x2, y2 }] (0–1, in the original;
-//          size is the line thickness, 1 = normal),
+//   marks: [{ type: "arrow" | "circle" | "box" | "text", color, size, x1, y1, x2, y2, text? }]
+//          (0–1, in the original; size is the line thickness or text size, 1 = normal; a text
+//          label is centred on x1, y1, with x2, y2 the same point),
 //   cutout: { bg: "#FFFFFF", edge: -50..50 } | null   background removed; the mask is stored beside
 // }                                                   the photo (a PNG whose alpha is the subject)
 
@@ -38,10 +39,23 @@ const SLIDERS = [
   { key: "whites", label: "Whites", min: 0, max: 100, hint: "Turns a grey table or sheet white" },
   { key: "sharpen", label: "Sharpen", min: 0, max: 100 },
 ];
-const COLORS = ["#FF2D2D", "#FFD400", "#1E7BFF", "#FFFFFF"];
+const COLORS = ["#FF2D2D", "#FFD400", "#1E7BFF", "#FFFFFF", "#111111"];
 const BRUSHES = [{ id: "", label: "Off" }, { id: "erase", label: "🧽 Erase" }, { id: "restore", label: "🖌 Restore" }];
 const THICKNESS = [{ size: 0.6, label: "Thin" }, { size: 1, label: "Normal" }, { size: 1.6, label: "Thick" }, { size: 2.4, label: "Extra thick" }];
-const TOOLS = [{ id: "arrow", label: "➚ Arrow" }, { id: "circle", label: "◯ Circle" }, { id: "box", label: "▢ Box" }];
+const TOOLS = [{ id: "arrow", label: "➚ Arrow" }, { id: "circle", label: "◯ Circle" }, { id: "box", label: "▢ Box" }, { id: "text", label: "T Text" }];
+const TEXT_SIZES = ["Small", "Medium", "Large", "Extra large"];   // the THICKNESS steps, as text sizes
+
+// A text label: its box (canvas pixels) centred on the mark's point. Text in the mark's colour on a
+// light box, or on a dark box for white and yellow text so it always stands out.
+const measure = document.createElement("canvas").getContext("2d");
+function textBox(mark, T, ow, oh, size) {
+  const p = T.transformPoint(new DOMPoint(mark.x1 * ow, mark.y1 * oh));
+  const px = Math.max(10, size * 0.034 * (mark.size ?? 1));
+  const font = `700 ${px}px "Myriad Pro", Myriad, system-ui, sans-serif`;
+  measure.font = font;
+  const w = measure.measureText(mark.text || " ").width + px * 0.9, h = px * 1.45;
+  return { x: p.x - w / 2, y: p.y - h / 2, w, h, cx: p.x, cy: p.y, px, font };
+}
 
 // ---------------------------------------------------------------------------
 // Rendering
@@ -178,6 +192,18 @@ function applyAdjust(ctx, width, height, a) {
 }
 
 function drawMark(ctx, mark, T, ow, oh, size) {
+  if (mark.type === "text") {
+    const b = textBox(mark, T, ow, oh, size);
+    const dark = mark.color === "#FFFFFF" || mark.color === "#FFD400";
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, b.px * 0.25);
+    ctx.fillStyle = dark ? "rgba(20,20,20,.78)" : "rgba(255,255,255,.92)"; ctx.fill();
+    ctx.lineWidth = Math.max(1, b.px * 0.06); ctx.strokeStyle = dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.25)"; ctx.stroke();
+    ctx.font = b.font; ctx.fillStyle = mark.color; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(mark.text, b.cx, b.cy + b.px * 0.04);
+    ctx.restore();
+    return;
+  }
   const p1 = T.transformPoint(new DOMPoint(mark.x1 * ow, mark.y1 * oh));
   const p2 = T.transformPoint(new DOMPoint(mark.x2 * ow, mark.y2 * oh));
   const w = Math.max(2, size * 0.011 * (mark.size ?? 1));
@@ -264,7 +290,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
   const maskHistory = [];
   const history = [];
   let tab = "crop", slider = "brightness", tool = "arrow", color = COLORS[0], aspect = "free";
-  let brush = "", brushSize = 30, highlight = false, working = false, thickness = 1;
+  let brush = "", brushSize = 30, highlight = false, working = false, thickness = 1, newText = "";   // newText: what the Text tool places next
 
   const root = document.createElement("div");
   root.className = "pe";
@@ -312,7 +338,11 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
     canvas.width = out.canvas.width; canvas.height = out.canvas.height;
     ctx.drawImage(out.canvas, 0, 0);
     if (drawing) drawMark(ctx, drawing, out.T, out.ow, out.oh, Math.max(canvas.width, canvas.height));
-    if (tab === "mark" && selected != null && e.marks[selected]) {
+    if (tab === "mark" && selected != null && e.marks[selected]?.type === "text") {
+      const b = textBox(e.marks[selected], out.T, out.ow, out.oh, Math.max(canvas.width, canvas.height)), pad = b.px * 0.2;
+      ctx.save(); ctx.setLineDash([b.px * 0.3, b.px * 0.2]); ctx.lineWidth = Math.max(2, b.px * 0.08); ctx.strokeStyle = "#1E7BFF";
+      ctx.strokeRect(b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad); ctx.restore();
+    } else if (tab === "mark" && selected != null && e.marks[selected]) {
       const r = handleRadius();
       for (const pt of markPoints(e.marks[selected])) {
         ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
@@ -430,6 +460,7 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
 
   // ----- marks: draw, then select to resize, move, recolour or delete -----
   let selected = null, grab = null;   // grab: { kind: "p1" | "p2" | "move", start, from, moved }
+  let labelEdit = null;                // the text mark being typed into (one undo step per label)
   const toCanvas = ev => {
     const rect = canvas.getBoundingClientRect();
     return { x: ((ev.clientX - rect.left) / rect.width) * canvas.width, y: ((ev.clientY - rect.top) / rect.height) * canvas.height };
@@ -449,20 +480,29 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
     const reach = Math.max(canvas.width, canvas.height) * 0.03;
     for (let i = e.marks.length - 1; i >= 0; i--) {
       const m = e.marks[i], [a, b] = markPoints(m);
+      if (m.type === "text") {
+        const t = textBox(m, view.T, view.ow, view.oh, Math.max(canvas.width, canvas.height)), pad = reach / 2;
+        if (cp.x >= t.x - pad && cp.x <= t.x + t.w + pad && cp.y >= t.y - pad && cp.y <= t.y + t.h + pad) return i;
+        continue;
+      }
       if (m.type === "arrow") { if (segDistance(cp, a, b) < reach) return i; continue; }
       const x0 = Math.min(a.x, b.x) - reach, x1 = Math.max(a.x, b.x) + reach, y0 = Math.min(a.y, b.y) - reach, y1 = Math.max(a.y, b.y) + reach;
       if (cp.x >= x0 && cp.x <= x1 && cp.y >= y0 && cp.y <= y1) return i;
     }
     return null;
   };
-  const select = i => { selected = i; drawPanel(); redraw(); };
+  const select = i => {
+    const left = selected != null ? e.marks[selected] : null;
+    if (left?.type === "text" && !left.text.trim() && i !== selected) { e.marks.splice(selected, 1); if (i != null && i > selected) i -= 1; }
+    selected = i; labelEdit = null; drawPanel(); redraw();
+  };
 
   canvas.addEventListener("pointerdown", ev => {
     if (tab !== "mark" || !view) return;   // nothing drawn yet
     ev.preventDefault();
     const cp = toCanvas(ev), p = toOriginal(ev);
     // A handle of the selected mark: resize / re-aim it.
-    if (selected != null && e.marks[selected]) {
+    if (selected != null && e.marks[selected] && e.marks[selected].type !== "text") {
       const [a, b] = markPoints(e.marks[selected]), r = handleRadius() * 2;
       const kind = Math.hypot(cp.x - b.x, cp.y - b.y) < r ? "p2" : Math.hypot(cp.x - a.x, cp.y - a.y) < r ? "p1" : null;
       if (kind) { snapshot(); grab = { kind, moved: false }; canvas.setPointerCapture(ev.pointerId); return; }
@@ -474,6 +514,14 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
       grab = { kind: "move", start: p, from: { ...e.marks[hit] }, moved: false };
       select(hit);
       canvas.setPointerCapture(ev.pointerId);
+      return;
+    }
+    // Empty space with the Text tool: place the label typed in the panel.
+    if (tool === "text") {
+      if (!newText.trim()) { selected = null; drawPanel(); panel.querySelector("#pe-label")?.focus(); return; }
+      snapshot();
+      e.marks.push({ type: "text", text: newText.trim(), color, size: thickness, x1: p.x, y1: p.y, x2: p.x, y2: p.y });
+      select(e.marks.length - 1);   // selected, so it can be dragged into place or edited
       return;
     }
     // Empty space: draw a new mark.
@@ -564,27 +612,41 @@ export async function editPhoto(originalBlob, startEdits, maskBlob = null, { sli
         <div class="pe-row end"><button class="pe-text small" data-act="resetadjust" ${neutral(e.adjust) ? "disabled" : ""}>Reset adjustments</button></div>`;
     } else {
       const sel = selected != null ? e.marks[selected] : null;
+      const texting = sel ? sel.type === "text" : tool === "text";
       panel.innerHTML = `
         ${sel ? `<div class="pe-selected"><b>Selected ${TOOLS.find(t => t.id === sel.type).label.replace(/^\S+\s/, "").toLowerCase()}</b>
           <button class="pe-text small" data-act="deselect">Done</button></div>` : `
         <div class="pe-chips">${TOOLS.map(t => `<button class="pe-chip ${t.id === tool ? "on" : ""}" data-tool="${t.id}">${t.label}</button>`).join("")}</div>`}
+        ${texting ? `<input id="pe-label" class="pe-input" maxlength="40" autocomplete="off" placeholder="e.g. 5 studs" value="${(sel ? sel.text : newText).replace(/"/g, "&quot;").replace(/</g, "&lt;")}" aria-label="Text">` : ""}
         <div class="pe-row">
           <span class="pe-colors">${COLORS.map(c => `<button class="pe-color ${c === (sel ? sel.color : color) ? "on" : ""}" data-color="${c}" style="background:${c}" aria-label="Colour ${c}"></button>`).join("")}</span>
         </div>
-        <div class="pe-chips">${THICKNESS.map(t => `<button class="pe-chip ${t.size === (sel ? sel.size ?? 1 : thickness) ? "on" : ""}" data-thickness="${t.size}">${t.label}</button>`).join("")}</div>
+        <div class="pe-chips">${THICKNESS.map((t, i) => `<button class="pe-chip ${t.size === (sel ? sel.size ?? 1 : thickness) ? "on" : ""}" data-thickness="${t.size}">${texting ? TEXT_SIZES[i] : t.label}</button>`).join("")}</div>
         <div class="pe-row">
           ${sel ? `<button class="pe-text small danger" data-act="deletemark">🗑 Delete this mark</button>` : `
           <button class="pe-text small" data-act="unmark" ${e.marks.length ? "" : "disabled"}>Undo mark</button>
           <button class="pe-text small" data-act="clearmarks" ${e.marks.length ? "" : "disabled"}>Clear all</button>`}
         </div>
-        <p class="pe-hint">${sel
+        <p class="pe-hint">${sel && sel.type === "text"
+          ? "Drag the label to move it next to the arrow; edit the text above. Tap empty space to place another."
+          : sel
           ? "Drag the round handles to resize or re-aim it, drag the mark to move it. Tap empty space to draw another."
+          : tool === "text"
+          ? "Type the text above, then tap the photo where it should go (e.g. next to an arrow)."
           : `Drag on the photo to draw ${tool === "arrow" ? "an arrow (from tail to tip)" : tool === "circle" ? "a circle" : "a box"}. Tap a mark to change it.`}</p>`;
     }
   }
 
   let sliding = false;
   panel.addEventListener("input", ev => {
+    if (ev.target.id === "pe-label") {
+      const m = selected != null ? e.marks[selected] : null;
+      if (m?.type === "text") {
+        if (labelEdit !== m) { snapshot(); labelEdit = m; }   // one undo step per label edited
+        m.text = ev.target.value; redraw();
+      } else newText = ev.target.value;
+      return;
+    }
     const key = ev.target.dataset.range;
     if (!key) return;
     if (!sliding) { snapshot(); sliding = true; }
