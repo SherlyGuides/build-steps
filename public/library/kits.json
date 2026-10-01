@@ -4,6 +4,11 @@
    "id": "xplorer",
    "name": "Xplorer (Mech)",
    "parts": "library/xplorer/parts.json"
+  },
+  {
+   "id": "peecee",
+   "name": "PeeCee",
+   "parts": "library/peecee/parts.json"
   }
  ]
 }

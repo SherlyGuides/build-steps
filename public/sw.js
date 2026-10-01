@@ -1,7 +1,7 @@
 // Keeps the app usable without a connection once it has been opened.
 // Pages load from the network first (so updates arrive), everything else from the cache first.
-const CACHE = "build-steps-v7";
-const CORE = ["./", "./index.html", "./manifest.webmanifest", "./library/kits.json", "./library/xplorer/parts.json",
+const CACHE = "build-steps-v8";
+const CORE = ["./", "./index.html", "./manifest.webmanifest", "./library/kits.json", "./library/xplorer/parts.json", "./library/peecee/parts.json",
   "./slides/bg1.jpg", "./slides/bg2.jpg", "./slides/bg2-cream.jpg", "./slides/bg2-sand.jpg", "./slides/bg2-peach.jpg", "./slides/bg3.jpg", "./slides/flip.svg", "./slides/turn.svg", "./icon-192.png"];
 
 self.addEventListener("install", event => {

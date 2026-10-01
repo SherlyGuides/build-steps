@@ -1,0 +1,167 @@
+{
+ "kit": "PeeCee",
+ "source": "Full PeeCee Kit Photos (supplied 2026-10-01)",
+ "fetched": "2026-10-01",
+ "parts": [
+  {
+   "id": "PeeCee/Button - 1c module.png",
+   "name": "Button - 1C Module",
+   "kitName": "Button - 1C Module",
+   "file": "library/peecee/Button_-_1C_Module.png",
+   "w": 366,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Button - 2c Module.png",
+   "name": "Button - 2C Module",
+   "kitName": "Button - 2C Module",
+   "file": "library/peecee/Button_-_2C_Module.png",
+   "w": 375,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/LED - 2C Module.png",
+   "name": "LED - 2C Module",
+   "kitName": "LED - 2C Module",
+   "file": "library/peecee/LED_-_2C_Module.png",
+   "w": 358,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Light Sensor Module.png",
+   "name": "Light Sensor Module",
+   "kitName": "Light Sensor Module",
+   "file": "library/peecee/Light_Sensor_Module.png",
+   "w": 373,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Mini Service Motor - 180 Degree.png",
+   "name": "Mini Servo Motor - 180 Degree",
+   "kitName": "Mini Servo Motor - 180 Degree",
+   "file": "library/peecee/Mini_Servo_Motor_-_180_Degree.png",
+   "w": 600,
+   "h": 533
+  },
+  {
+   "id": "PeeCee/Motor Bridge.png",
+   "name": "Motor Bridge",
+   "kitName": "Motor Bridge",
+   "file": "library/peecee/Motor_Bridge.png",
+   "w": 600,
+   "h": 570
+  },
+  {
+   "id": "PeeCee/PC Angled port jack - 4 pole.png",
+   "name": "PC Angled port jack - 4 pole",
+   "kitName": "PC Angled port jack - 4 pole",
+   "file": "library/peecee/PC_Angled_port_jack_-_4_pole.png",
+   "w": 600,
+   "h": 597
+  },
+  {
+   "id": "PeeCee/PC Port Cable - 4 Pole - Short - 25 cms.png",
+   "name": "PC Port Cable - 4 Pole - Short - 25 cms",
+   "kitName": "PC Port Cable - 4 Pole - Short - 25 cms",
+   "file": "library/peecee/PC_Port_Cable_-_4_Pole_-_Short_-_25_cms.png",
+   "w": 358,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/PC Port Cable - 4 pole - long - 1m.png",
+   "name": "PC Port Cable - 4 pole - long - 1m",
+   "kitName": "PC Port Cable - 4 pole - long - 1m",
+   "file": "library/peecee/PC_Port_Cable_-_4_pole_-_long_-_1m.png",
+   "w": 600,
+   "h": 340
+  },
+  {
+   "id": "PeeCee/PC Port Jack - 4 Pole.png",
+   "name": "PC Port Jack - 4 Pole",
+   "kitName": "PC Port Jack - 4 Pole",
+   "file": "library/peecee/PC_Port_Jack_-_4_Pole.png",
+   "w": 600,
+   "h": 171
+  },
+  {
+   "id": "PeeCee/PV Conector Cable 15 cms long.png",
+   "name": "PV Connector Cable - 15 cms long",
+   "kitName": "PV Connector Cable - 15 cms long",
+   "file": "library/peecee/PV_Connector_Cable_-_15_cms_long.png",
+   "w": 595,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/PeeCee shield 1.png",
+   "name": "PeeCee shield 1",
+   "kitName": "PeeCee shield 1",
+   "file": "library/peecee/PeeCee_shield_1.png",
+   "w": 600,
+   "h": 326
+  },
+  {
+   "id": "PeeCee/PeeCee v1.0.png",
+   "name": "PeeCee v1.0",
+   "kitName": "PeeCee v1.0",
+   "file": "library/peecee/PeeCee_v1.0.png",
+   "w": 593,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Pot Sensor Module.png",
+   "name": "Pot Sensor Module",
+   "kitName": "Pot Sensor Module",
+   "file": "library/peecee/Pot_Sensor_Module.png",
+   "w": 324,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Rain Sensor Module.png",
+   "name": "Rain Sensor Module",
+   "kitName": "Rain Sensor Module",
+   "file": "library/peecee/Rain_Sensor_Module.png",
+   "w": 328,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Range Sensor Module.png",
+   "name": "Range Sensor Module",
+   "kitName": "Range Sensor Module",
+   "file": "library/peecee/Range_Sensor_Module.png",
+   "w": 323,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/Servo motor - Plastic horns with screws (packets).png",
+   "name": "Servo motor - Plastic horns with screws (packets)",
+   "kitName": "Servo motor - Plastic horns with screws (packets)",
+   "file": "library/peecee/Servo_motor_-_Plastic_horns_with_screws_packets.png",
+   "w": 600,
+   "h": 563
+  },
+  {
+   "id": "PeeCee/Slide Switch Module.png",
+   "name": "Slide Switch Module",
+   "kitName": "Slide Switch Module",
+   "file": "library/peecee/Slide_Switch_Module.png",
+   "w": 348,
+   "h": 600
+  },
+  {
+   "id": "PeeCee/USB C-type cable - 1m.png",
+   "name": "USB C-type cable - 1m",
+   "kitName": "USB C-type cable - 1m",
+   "file": "library/peecee/USB_C-type_cable_-_1m.png",
+   "w": 600,
+   "h": 561
+  },
+  {
+   "id": "PeeCee/Ultrasonic Sensor Module.png",
+   "name": "Ultrasonic Sensor Module",
+   "kitName": "Ultrasonic Sensor Module",
+   "file": "library/peecee/Ultrasonic_Sensor_Module.png",
+   "w": 600,
+   "h": 360
+  }
+ ]
+}

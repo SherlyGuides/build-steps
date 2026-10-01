@@ -1,6 +1,7 @@
 // Parts pictures and names bundled with the app, one folder per kit (public/library/<kit>/).
-// Snapshot of the BOM maker's library on glbadmin.thinkpro.academy. To add a kit
-// (Innovator, Computational, Tronix), add its folder and parts.json and list it in kits.json.
+// Xplorer is a snapshot of the BOM maker's library on glbadmin.thinkpro.academy; PeeCee comes from
+// the kit photos supplied for it. To add a kit
+// (Innovator, Tronix), add its folder and parts.json and list it in kits.json.
 
 let kits;
 const partsByKit = new Map();
