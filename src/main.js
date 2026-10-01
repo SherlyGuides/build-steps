@@ -3,7 +3,7 @@ import { blankEdits, editPhoto, renderPhoto } from "./photo-editor.js";
 import { BOM_GRIDS, DEFAULT_PHOTO, DESIGN_VERSION, LAYOUT, MAX_STEP_PARTS, applyDesignStandards, offerDesignUpdate, outdatedSteps, MOVES, photoBox, bomCell, bomStyle, countLabel, namedPart, partInPicture, bomGrid, fittedSize, isSinglePicture, partNameStyle, labelText, stepAreas, stepSplit, bomHeading, bomPages, bomRows, buildDeck, deckFileName, fit, isPartsList, materials, partLayout, stepHeading } from "./deck.js";
 import { pickBuildFile, pickGalleryPhotos, preparePhoto, saveAndShare, takePhoto } from "./device.js";
 import { suggestInstructions } from "./ai.js";
-import { kitName, loadKits, loadParts } from "./library.js";
+import { kitName, kitsOf, loadKits, loadParts } from "./library.js";
 import { buildFileName, exportBuild, importBuild } from "./transfer.js";
 
 // Screens, chosen by the address so the phone's Back button works:
@@ -147,6 +147,11 @@ function confirmDialog(title, message, action, danger = true) {
 
 async function detailsDialog(build, { list = isPartsList(build) } = {}) {
   const kits = await loadKits();
+  const chosen = new Set(build ? kitsOf(build) : [kits[0].id]);
+  // A kit whose parts are already used in this build can't be taken off.
+  const usedIds = new Set([...(build?.steps ?? []).flatMap(s => s.parts.map(p => p.id)), ...(build?.bom?.extras ?? []).map(e => e.id)]);
+  const inUse = new Set();
+  for (const k of chosen) if ([...(await loadParts(k)).keys()].some(id => usedIds.has(id))) inUse.add(k);
   const range = (min, max, value) => Array.from({ length: max - min + 1 }, (_, i) => min + i)
     .map(n => `<option value="${n}" ${n === value ? "selected" : ""}>${n}</option>`).join("");
   // A parts list has no cover, so grade and session are optional (they only appear in the file name).
@@ -159,7 +164,9 @@ async function detailsDialog(build, { list = isPartsList(build) } = {}) {
         <label>Grade${list ? " (optional)" : ""}<select name="grade" ${list ? "" : "required"}>${first(build?.grade)}${range(MIN_GRADE, MAX_GRADE, build?.grade)}</select></label>
         <label>Session${list ? " (optional)" : ""}<select name="session" ${list ? "" : "required"}>${first(build?.session)}${range(MIN_SESSION, MAX_SESSION, build?.session)}</select></label>
       </div>
-      <label>Parts library<select name="kit" ${build?.steps.some(s => s.parts.length) || build?.bom?.extras?.length ? "disabled" : ""}>${kits.map(k => `<option value="${esc(k.id)}" ${k.id === (build?.kit ?? kits[0].id) ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select></label>
+      <fieldset class="kit-choice"><legend>Parts libraries <span>choose one or more kits</span></legend>
+        ${kits.map(k => `<label class="kit-option"><input type="checkbox" name="kits" value="${esc(k.id)}" ${chosen.has(k.id) ? "checked" : ""} ${inUse.has(k.id) ? "disabled" : ""}><span>${esc(k.name)}${inUse.has(k.id) ? " <small>parts in use</small>" : ""}</span></label>`).join("")}
+      </fieldset>
       <div class="dialog-actions"><button type="button" class="btn ghost" data-close>Cancel</button>
       <button class="btn primary">${build ? "Save" : list ? "Create BOM" : "Start build"}</button></div>
     </form>`,
@@ -169,7 +176,10 @@ async function detailsDialog(build, { list = isPartsList(build) } = {}) {
       e.preventDefault();
       const name = form.name.value.replace(/\s+/g, " ").trim();
       if (!name) { form.name.focus(); return; }
-      close({ name, grade: form.grade.value ? Number(form.grade.value) : null, session: form.session.value ? Number(form.session.value) : null, kit: form.kit.value || build?.kit });
+      const picked = kits.map(k => k.id).filter(id => inUse.has(id) || form.querySelector(`input[name="kits"][value="${id}"]`).checked);
+      if (!picked.length) { toast("Choose at least one parts library."); return; }
+      // kit (the first) is kept for build files opened by older versions of the app.
+      close({ name, grade: form.grade.value ? Number(form.grade.value) : null, session: form.session.value ? Number(form.session.value) : null, kits: picked, kit: picked[0] });
     });
   });
 }
@@ -187,7 +197,7 @@ async function renderHome() {
       ${builds.length ? `<ul class="build-list">${builds.map(b => `
         <li class="build-row"><a href="#/build/${esc(b.id)}${isPartsList(b) ? "/bom" : ""}" class="build-card">
           <strong>${isPartsList(b) ? `<i class="tag">BOM</i>` : ""}${esc(b.name)}</strong>
-          <span>${b.grade && b.session ? `Grade ${b.grade} · Session ${b.session} · ` : ""}${esc(names[b.kit] ?? b.kit)}</span>
+          <span>${b.grade && b.session ? `Grade ${b.grade} · Session ${b.session} · ` : ""}${esc(kitsOf(b).map(k => names[k] ?? k).join(" + "))}</span>
           <span class="meta">${isPartsList(b)
             ? `${(b.bom?.extras ?? []).length} part${(b.bom?.extras ?? []).length === 1 ? "" : "s"}`
             : `${b.steps.length} step${b.steps.length === 1 ? "" : "s"}`} · edited ${new Date(b.updatedAt).toLocaleDateString()}</span>
@@ -250,7 +260,7 @@ async function renderBuild(buildId) {
   const build = await getBuild(buildId);
   if (!build) { location.replace("#/"); return; }
   if (isPartsList(build)) { location.replace(`#/build/${buildId}/bom`); return; }
-  const library = await loadParts(build.kit);
+  const library = await loadParts(kitsOf(build));
   const thumbs = await Promise.all(build.steps.map(s => photoUrl(s.photo)));
   const incomplete = build.steps.filter(s => stepIssues(s).length).length;
   const bom = bomRows(build, library);
@@ -260,7 +270,7 @@ async function renderBuild(buildId) {
   app.innerHTML = `
     <header class="bar">
       <a href="#/" class="icon-btn" aria-label="All builds">‹</a>
-      <div class="title"><h1>${esc(build.name)}</h1><p>Grade ${build.grade} · Session ${build.session} · ${esc(await kitName(build.kit))}</p></div>
+      <div class="title"><h1>${esc(build.name)}</h1><p>Grade ${build.grade} · Session ${build.session} · ${esc(await kitName(kitsOf(build)))}</p></div>
       <button class="icon-btn" id="menu" aria-label="Build options">⋯</button>
     </header>
     <section class="page">
@@ -294,7 +304,7 @@ async function renderBuild(buildId) {
           </span>
         </li>`;
       }).join("")}</ol>`
-      : `<div class="empty"><h2>Add the first step</h2><p>Photograph the model after the step, choose the part it uses from the ${esc(await kitName(build.kit))} list and type the instruction exactly as it should appear on the slide.</p></div>`}
+      : `<div class="empty"><h2>Add the first step</h2><p>Photograph the model after the step, choose the part it uses from the ${esc(await kitName(kitsOf(build)))} list and type the instruction exactly as it should appear on the slide.</p></div>`}
       <button class="btn secondary wide gallery-add" id="gallery-add">${L.addFromGallery}</button>
       <p class="hint center">Select one or more photos: each becomes a step, in the order you select them.${LAPTOP ? " You can also drag photos onto this page." : ""}</p>
     </section>
@@ -543,10 +553,10 @@ function setExtra(build, id, qty) {
 async function renderBom(buildId, { picker = false } = {}) {
   const build = await getBuild(buildId);
   if (!build) { location.replace("#/"); return; }
-  const library = await loadParts(build.kit);
+  const library = await loadParts(kitsOf(build));
   const here = `#/build/${buildId}/bom`;
   const list = isPartsList(build);   // a standalone parts list: only Materials slides, parts chosen by hand
-  const kit = await kitName(build.kit);
+  const kit = await kitName(kitsOf(build));
 
   const draw = () => {
     const rows = materials(build, library);
@@ -727,7 +737,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
   const index = build?.steps.findIndex(s => s.id === stepId) ?? -1;
   if (index < 0) { location.replace(build ? `#/build/${buildId}` : "#/"); return; }
   const step = build.steps[index];
-  const library = await loadParts(build.kit);
+  const library = await loadParts(kitsOf(build));
   const save = () => saveBuild(build);
   const here = `#/build/${buildId}/step/${stepId}`;
 
@@ -777,7 +787,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
               <button class="icon-btn small remove" data-remove="${i}" aria-label="Remove part">×</button>
             </li>`;
           }))).join("")}</ul>
-          <button class="btn secondary wide" id="add-part">+ Choose part from ${esc(await kitName(build.kit))}</button>
+          <button class="btn secondary wide" id="add-part">+ Choose part from ${esc(await kitName(kitsOf(build)))}</button>
           ${index ? `<div class="onto">
             <h4>Goes onto <span>optional · tells the AI where it attaches</span></h4>
             <div class="onto-chips">${earlierParts(build, index, library).map(part => `<button class="onto-chip ${step.onto?.includes(part.id) ? "on" : ""}" data-onto="${esc(part.id)}"><img src="${esc(part.file)}" alt="">${esc(part.name)}</button>`).join("") || `<p class="hint">Parts from earlier steps appear here.</p>`}</div>
@@ -1132,6 +1142,8 @@ function searchWords(text) {
 function partPicker({ build, library, back, title, subtitle, count, add, remove }) {
   const used = new Set(build.steps.flatMap(s => s.parts.map(p => p.id)));
   const all = [...library.values()];
+  const kitIds = [...new Set(all.map(p => p.kit))];
+  let onlyKit = "";   // with several kits: "" shows all, or one kit's id
   const overlay = document.createElement("div");
   overlay.className = "picker";
   overlay.innerHTML = `
@@ -1139,7 +1151,8 @@ function partPicker({ build, library, back, title, subtitle, count, add, remove 
       <a href="${back}" class="icon-btn" aria-label="Close">‹</a>
       <div class="title"><h1>${esc(title)}</h1><p>${esc(subtitle)}</p></div>
     </header>
-    <div class="search"><input type="search" placeholder="Search ${all.length} parts (e.g. 1 x 4, gear, plate)" autocomplete="off"></div>
+    <div class="search"><input type="search" placeholder="Search ${all.length} parts (e.g. 1 x 4, gear, sensor)" autocomplete="off"></div>
+    ${kitIds.length > 1 ? `<div class="kit-filter" role="radiogroup" aria-label="Kit"><button role="radio" aria-checked="true" data-kit="">All kits</button>${kitIds.map(id => `<button role="radio" aria-checked="false" data-kit="${esc(id)}" data-kit-name="${esc(id)}"></button>`).join("")}</div>` : ""}
     <div class="picker-body"></div>
     <footer class="actions"><a class="btn primary wide" href="${back}">Done</a></footer>`;
   document.body.append(overlay);
@@ -1168,7 +1181,7 @@ function partPicker({ build, library, back, title, subtitle, count, add, remove 
   const draw = () => {
     const words = searchWords(search.value);
     const match = part => { const hay = searchWords(`${part.name} ${part.kitName}`); return words.every(w => hay.some(h => /^\d/.test(w) ? h === w : h.startsWith(w))); };
-    const found = all.filter(match);
+    const found = all.filter(p => (!onlyKit || p.kit === onlyKit) && match(p));
     const recent = words.length ? [] : found.filter(p => used.has(p.id));
     body.innerHTML = `
       ${recent.length ? `<h3>Used in this build</h3><div class="grid">${recent.map(tile).join("")}</div><h3>All parts</h3>` : ""}
@@ -1193,6 +1206,12 @@ function partPicker({ build, library, back, title, subtitle, count, add, remove 
     await saveBuild(build);
   });
   search.addEventListener("input", draw);
+  overlay.querySelectorAll("[data-kit]").forEach(b => b.addEventListener("click", () => {
+    onlyKit = b.dataset.kit;
+    overlay.querySelectorAll("[data-kit]").forEach(x => x.setAttribute("aria-checked", String(x === b)));
+    draw();
+  }));
+  overlay.querySelectorAll("[data-kit-name]").forEach(async b => { b.textContent = await kitName(b.dataset.kitName); });
   draw();
 }
 

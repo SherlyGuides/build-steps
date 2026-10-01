@@ -473,3 +473,15 @@ body.dropping::after {
 .tint-chips i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #C9B8A3; flex: none; }
 .tint-chips button[aria-checked="true"] { border-color: var(--rust); color: var(--rust); background: #FFF6F1; }
 @media (max-width: 420px) { .grid-chips { grid-template-columns: repeat(4, 1fr); } }
+
+/* Parts libraries: one or more kits per build */
+.kit-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.kit-choice legend { font-size: 14px; font-weight: 600; margin-bottom: 6px; padding: 0; }
+.kit-choice legend span { font-weight: 400; color: var(--muted); font-size: 12.5px; margin-left: 4px; }
+.kit-option { display: flex !important; flex-direction: row !important; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--card); font-weight: 500; }
+.kit-option input { width: 20px; height: 20px; accent-color: var(--rust); margin: 0; flex: none; }
+.kit-option:has(input:checked) { border-color: var(--rust); background: #FFF6F1; }
+.kit-option small { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.kit-filter { display: flex; gap: 6px; padding: 0 16px 8px; overflow-x: auto; }
+.kit-filter button { flex: none; padding: 7px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--card); font-size: 13.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.kit-filter button[aria-checked="true"] { border-color: var(--rust); color: var(--rust); background: #FFF6F1; }

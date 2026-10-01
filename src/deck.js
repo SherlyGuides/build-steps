@@ -1,6 +1,6 @@
 import PptxGenJS from "pptxgenjs";
 import { getImage } from "./db.js";
-import { loadParts } from "./library.js";
+import { kitsOf, loadParts } from "./library.js";
 
 // =============================================================================
 // SLIDE LAYOUT — same 1280 × 720 design-pixel system and colours as Lesson Foundry (app.py).
@@ -459,7 +459,7 @@ function text(slide, value, box, options) {
 
 /** Build the .pptx for a build. Returns a Blob. onProgress(done, total) is called per step. */
 export async function buildDeck(build, onProgress = () => {}) {
-  const library = await loadParts(build.kit);
+  const library = await loadParts(kitsOf(build));
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_WIDE";
   pptx.title = build.name;

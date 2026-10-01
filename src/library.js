@@ -11,16 +11,26 @@ export async function loadKits() {
   return kits;
 }
 
-export async function loadParts(kitId) {
+/** The kits a build uses: build.kits, or the single build.kit of builds made before more were allowed. */
+export const kitsOf = build => build?.kits?.length ? build.kits : [build?.kit ?? "xplorer"];
+
+async function loadKit(kitId) {
   if (!partsByKit.has(kitId)) {
     const kit = (await loadKits()).find(k => k.id === kitId);
     if (!kit) throw new Error(`The parts library "${kitId}" is not in this app.`);
     const data = await (await fetch(kit.parts)).json();
-    partsByKit.set(kitId, new Map(data.parts.map(p => [p.id, p])));
+    partsByKit.set(kitId, new Map(data.parts.map(p => [p.id, { ...p, kit: kitId }])));
   }
   return partsByKit.get(kitId);
 }
 
-export async function kitName(kitId) {
-  return (await loadKits()).find(k => k.id === kitId)?.name ?? kitId;
+/** Parts of one kit or several (part ids are unique across kits), as one Map by id; each part knows its kit. */
+export async function loadParts(kitIds) {
+  const maps = await Promise.all([].concat(kitIds).map(loadKit));
+  return maps.length === 1 ? maps[0] : new Map(maps.flatMap(m => [...m]));
+}
+
+export async function kitName(kitIds) {
+  const kits = await loadKits();
+  return [].concat(kitIds).map(id => kits.find(k => k.id === id)?.name ?? id).join(" + ");
 }
