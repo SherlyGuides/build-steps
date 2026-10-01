@@ -218,8 +218,8 @@ export function outdatedSteps(build) {
     step.partName?.hideNames));
 }
 
-/** Whether to offer the update: an older build with steps that are not on the current defaults. */
-export const offerDesignUpdate = build => !isPartsList(build) && (build.designVersion ?? 1) < DESIGN_VERSION && outdatedSteps(build).length > 0;
+/** Whether to offer the update: every build with steps made before the current standard. */
+export const offerDesignUpdate = build => !isPartsList(build) && (build.designVersion ?? 1) < DESIGN_VERSION && build.steps.length > 0;
 
 /** Put every step on the current defaults. Photos, parts, text and chosen layouts stay as they are. */
 export function applyDesignStandards(build) {

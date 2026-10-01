@@ -265,7 +265,7 @@ async function renderBuild(buildId) {
     </header>
     <section class="page">
       ${offerDesignUpdate(build) ? `<div class="design-update">
-        <p><strong>New design standards</strong> ${outdatedSteps(build).length} step${outdatedSteps(build).length === 1 ? " uses" : "s use"} the older slide layout. Update to the latest: parts 20% / photo 80%, part names with counts ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt.</p>
+        <p><strong>New design standards</strong> This build was made before the latest design standards${outdatedSteps(build).length ? ` (${outdatedSteps(build).length} step${outdatedSteps(build).length === 1 ? " uses" : "s use"} the older layout)` : ""}. Update to the latest: parts 20% / photo 80%, part names with counts ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt.</p>
         <div><button class="btn primary compact" id="design-update">Update design to latest design standards</button><button class="link" id="design-keep">Keep my layout</button></div>
       </div>` : ""}
       <a class="bom-card" href="#/build/${esc(build.id)}/bom">
@@ -394,7 +394,7 @@ async function addStepsFromGallery(build, dropped = null) {
 async function updateDesign(build) {
   const count = outdatedSteps(build).length;
   if (!(await confirmDialog("Update design to latest design standards?",
-    `${count} step${count === 1 ? "" : "s"} will change to the latest layout: parts take 20% of the width and the photo 80%, and each part shows its name and count ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt. Photos, parts and instructions stay the same. You can still adjust any step afterwards.`,
+    `${count ? `${count} step${count === 1 ? "" : "s"} will change to` : "Every step will use"} the latest layout: parts take 20% of the width and the photo 80%, and each part shows its name and count ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt. Photos, parts and instructions stay the same. You can still adjust any step afterwards.`,
     "Update design", false))) return false;
   applyDesignStandards(build);
   await saveBuild(build);
@@ -408,7 +408,7 @@ async function buildMenu(build) {
     <h2>${esc(build.name)}</h2>
     <div class="menu">
       <button class="btn secondary" data-choice="details">${list ? "Edit name, grade, session" : "Edit name, grade, session"}</button>
-      ${list || !outdatedSteps(build).length ? "" : `<button class="btn secondary" data-choice="design">Update design to latest design standards</button>`}
+      ${list || !build.steps.length ? "" : `<button class="btn secondary" data-choice="design">Update design to latest design standards</button>`}
       <button class="btn secondary" data-choice="export">Save ${list ? "list" : "build"} file (backup / another device)</button>
       <button class="btn danger-ghost" data-choice="delete">Delete ${list ? "BOM" : "build"}</button>
     </div>
