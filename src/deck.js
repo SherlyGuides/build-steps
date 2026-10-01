@@ -35,9 +35,9 @@ export const LAYOUT = {
   // "Use previous image" steps: previous photo (left) and this step's photo (right); their own
   // split (step.beforeSplit) from 10% – 90% to 90% – 10%, equal by default. See stepAreas().
   move: { y: 175, h: 465, defaultSplit: 0.5 },
-  // Label under each part picture: "Plate 2 x 2 - 2 Pieces" (name grey, count bold rust), just the
+  // Label beside each part picture: "Plate 2 x 2 - 2" (name grey, count bold rust), just the
   // name for a single piece; up to two lines. Per step: the size, and names can be turned off
-  // (then only "2 Pieces" is shown, and nothing for a single piece).
+  // (then only "x 2" is shown, and nothing for a single piece).
   partName: { sizes: [14, 18, 20, 24], default: 18, minSize: 10 },
   slideNumber: { x: 1190, y: 645, w: 50, h: 24, size: 10 },
   thankYou: { text: "Thank You!", x: 40, y: 400, w: 440, h: 110, size: 48 },
@@ -320,13 +320,11 @@ export function partNameStyle(step) {
   return { show: !step?.partName?.hideNames, size, below: step?.partName?.labelPos === "below" };
 }
 
-// A no-break space keeps "2 Pieces" on one line when the label wraps.
-export const pieceCount = qty => `${qty}\u00A0Pieces`;
 
 /** The label under a part as runs: [{ text, count? }]; empty when there is nothing to show. */
 export function partLabel(name, qty, names) {
-  const runs = names.show ? [{ text: qty > 1 ? `${name} - ` : name }] : [];
-  if (qty > 1) runs.push({ text: pieceCount(qty), count: true });
+  const runs = names.show ? [{ text: qty > 1 ? `${name}\u00A0- ` : name }] : [];   // no-break space keeps "- 2" together
+  if (qty > 1) runs.push({ text: names.show ? String(qty) : countLabel(qty).replace(" ", "\u00A0"), count: true });
   return runs;
 }
 export const labelText = runs => runs.map(r => r.text).join("");
@@ -340,7 +338,7 @@ export function partCells(count, area = LAYOUT.parts) {
 }
 
 /**
- * Where each part's picture and its label ("Plate 2 x 2 - 2 Pieces") go. Parts are stacked in one
+ * Where each part's picture and its label ("Plate 2 x 2 - 2") go. Parts are stacked in one
  * column; each label sits to the right of its picture, vertically centred on it, and may use the
  * free space up to labelLimit (the left edge of the step photo). When that space is too narrow the
  * picture gives up part of the column instead. With "Under the part" chosen for the step (and on

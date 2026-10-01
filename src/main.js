@@ -265,7 +265,7 @@ async function renderBuild(buildId) {
     </header>
     <section class="page">
       ${offerDesignUpdate(build) ? `<div class="design-update">
-        <p><strong>New design standards</strong> ${outdatedSteps(build).length} step${outdatedSteps(build).length === 1 ? " uses" : "s use"} the older slide layout. Update to the latest: parts 20% / photo 80%, part names with piece counts at ${LAYOUT.partName.default} pt.</p>
+        <p><strong>New design standards</strong> ${outdatedSteps(build).length} step${outdatedSteps(build).length === 1 ? " uses" : "s use"} the older slide layout. Update to the latest: parts 20% / photo 80%, part names with counts ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt.</p>
         <div><button class="btn primary compact" id="design-update">Update design to latest design standards</button><button class="link" id="design-keep">Keep my layout</button></div>
       </div>` : ""}
       <a class="bom-card" href="#/build/${esc(build.id)}/bom">
@@ -394,7 +394,7 @@ async function addStepsFromGallery(build, dropped = null) {
 async function updateDesign(build) {
   const count = outdatedSteps(build).length;
   if (!(await confirmDialog("Update design to latest design standards?",
-    `${count} step${count === 1 ? "" : "s"} will change to the latest layout: parts take 20% of the width and the photo 80%, and each part shows its name and piece count at ${LAYOUT.partName.default} pt. Photos, parts and instructions stay the same. You can still adjust any step afterwards.`,
+    `${count} step${count === 1 ? "" : "s"} will change to the latest layout: parts take 20% of the width and the photo 80%, and each part shows its name and count ("Plate 2 x 2 - 2") at ${LAYOUT.partName.default} pt. Photos, parts and instructions stay the same. You can still adjust any step afterwards.`,
     "Update design", false))) return false;
   applyDesignStandards(build);
   await saveBuild(build);
@@ -796,7 +796,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
             <button role="radio" aria-checked="${!partNameStyle(step).below}" data-pn-pos="">Beside the part</button>
             <button role="radio" aria-checked="${partNameStyle(step).below}" data-pn-pos="below">Under the part</button>
           </div>
-          <p class="hint">Each part is labelled "Plate 2 x 2 - 2 Pieces", or just the name for a single piece. With names off, only "2 Pieces" is shown. Label size:</p>
+          <p class="hint">Each part is labelled "Plate 2 x 2 - 2", or just the name for a single piece. With names off, only "x 2" is shown. Label size:</p>
           <div class="pe-size" id="pn-sizes" role="radiogroup" aria-label="Part label size">
             ${LAYOUT.partName.sizes.map((pt, i) => `<button role="radio" aria-checked="${partNameStyle(step, build).size === pt}" data-pn-size="${pt}">${["Small", "Medium", "Large", "Extra large"][i]} <small>${pt} pt</small></button>`).join("")}
           </div>`}
