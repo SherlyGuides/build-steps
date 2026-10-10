@@ -549,8 +549,8 @@
   },
   {
    "id": "Innovator/General Motor Holder.png",
-   "name": "General Motor Holder",
-   "kitName": "General Motor Holder",
+   "name": "Geared Motor Holder",
+   "kitName": "Geared Motor Holder",
    "file": "library/innovator/General_Motor_Holder.png",
    "w": 600,
    "h": 396
@@ -621,8 +621,8 @@
   },
   {
    "id": "Innovator/Motor Propeller.png",
-   "name": "Motor Propeller",
-   "kitName": "Motor Propeller",
+   "name": "Propeller",
+   "kitName": "Propeller",
    "file": "library/innovator/Motor_Propeller.png",
    "w": 600,
    "h": 488
