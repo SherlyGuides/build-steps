@@ -1,0 +1,159 @@
+{
+ "kit": "Tronix",
+ "source": "Tronix kit photos (supplied 2026-10-10)",
+ "fetched": "2026-10-10",
+ "parts": [
+  {
+   "id": "Tronix/Beeper Module.png",
+   "name": "Beeper Module",
+   "kitName": "Beeper Module",
+   "file": "library/tronix/Beeper_Module.png",
+   "w": 600,
+   "h": 447
+  },
+  {
+   "id": "Tronix/Capacitor Module (16V).png",
+   "name": "Capacitor Module (16V)",
+   "kitName": "Capacitor Module (16V)",
+   "file": "library/tronix/Capacitor_Module_16V.png",
+   "w": 600,
+   "h": 429
+  },
+  {
+   "id": "Tronix/Capacitor Module (25V).png",
+   "name": "Capacitor Module (25V)",
+   "kitName": "Capacitor Module (25V)",
+   "file": "library/tronix/Capacitor_Module_25V.png",
+   "w": 600,
+   "h": 469
+  },
+  {
+   "id": "Tronix/DC M130.png",
+   "name": "DC M130",
+   "kitName": "DC M130",
+   "file": "library/tronix/DC_M130.png",
+   "w": 600,
+   "h": 437
+  },
+  {
+   "id": "Tronix/DIP Switch Module.png",
+   "name": "DIP Switch Module",
+   "kitName": "DIP Switch Module",
+   "file": "library/tronix/DIP_Switch_Module.png",
+   "w": 600,
+   "h": 451
+  },
+  {
+   "id": "Tronix/Diode Module.png",
+   "name": "Diode Module",
+   "kitName": "Diode Module",
+   "file": "library/tronix/Diode_Module.png",
+   "w": 600,
+   "h": 406
+  },
+  {
+   "id": "Tronix/F to F Jumper Cable.png",
+   "name": "F to F Jumper Cable",
+   "kitName": "F to F Jumper Cable",
+   "file": "library/tronix/F_to_F_Jumper_Cable.png",
+   "w": 600,
+   "h": 566
+  },
+  {
+   "id": "Tronix/Junction Module.png",
+   "name": "Junction Module",
+   "kitName": "Junction Module",
+   "file": "library/tronix/Junction_Module.png",
+   "w": 600,
+   "h": 543
+  },
+  {
+   "id": "Tronix/LDR Module.png",
+   "name": "LDR Module",
+   "kitName": "LDR Module",
+   "file": "library/tronix/LDR_Module.png",
+   "w": 600,
+   "h": 411
+  },
+  {
+   "id": "Tronix/LED Module.png",
+   "name": "LED Module",
+   "kitName": "LED Module",
+   "file": "library/tronix/LED_Module.png",
+   "w": 600,
+   "h": 403
+  },
+  {
+   "id": "Tronix/Potentiometer Module.png",
+   "name": "Potentiometer Module",
+   "kitName": "Potentiometer Module",
+   "file": "library/tronix/Potentiometer_Module.png",
+   "w": 600,
+   "h": 491
+  },
+  {
+   "id": "Tronix/RGB LED Module.png",
+   "name": "RGB LED Module",
+   "kitName": "RGB LED Module",
+   "file": "library/tronix/RGB_LED_Module.png",
+   "w": 600,
+   "h": 397
+  },
+  {
+   "id": "Tronix/Resistor Module.png",
+   "name": "Resistor Module",
+   "kitName": "Resistor Module",
+   "file": "library/tronix/Resistor_Module.png",
+   "w": 600,
+   "h": 414
+  },
+  {
+   "id": "Tronix/Speaker.png",
+   "name": "Speaker",
+   "kitName": "Speaker",
+   "file": "library/tronix/Speaker.png",
+   "w": 600,
+   "h": 519
+  },
+  {
+   "id": "Tronix/Tact Switch Module.png",
+   "name": "Tact Switch Module",
+   "kitName": "Tact Switch Module",
+   "file": "library/tronix/Tact_Switch_Module.png",
+   "w": 600,
+   "h": 445
+  },
+  {
+   "id": "Tronix/Timer IC Module.png",
+   "name": "Timer IC Module",
+   "kitName": "Timer IC Module",
+   "file": "library/tronix/Timer_IC_Module.png",
+   "w": 600,
+   "h": 414
+  },
+  {
+   "id": "Tronix/Transistor Module.png",
+   "name": "Transistor Module",
+   "kitName": "Transistor Module",
+   "file": "library/tronix/Transistor_Module.png",
+   "w": 600,
+   "h": 411
+  },
+  {
+   "id": "Tronix/Two Way switch Module.png",
+   "name": "Two Way Switch Module",
+   "kitName": "Two Way Switch Module",
+   "file": "library/tronix/Two_Way_Switch_Module.png",
+   "w": 600,
+   "h": 416
+  },
+  {
+   "id": "Tronix/USB Power Module.png",
+   "name": "USB Power Module",
+   "kitName": "USB Power Module",
+   "file": "library/tronix/USB_Power_Module.png",
+   "w": 575,
+   "h": 600
+  }
+ ]
+}

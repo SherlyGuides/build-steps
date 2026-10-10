@@ -9,6 +9,11 @@
    "id": "peecee",
    "name": "PeeCee",
    "parts": "library/peecee/parts.json"
+  },
+  {
+   "id": "tronix",
+   "name": "Tronix",
+   "parts": "library/tronix/parts.json"
   }
  ]
 }
