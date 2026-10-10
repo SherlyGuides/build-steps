@@ -40,7 +40,7 @@ GNU AGPL-3.0 (see `LICENSE`), because the background-removal model (ISNet) is AG
 ## Parts libraries
 
 `public/library/kits.json` lists the kits; each kit has a folder of pictures and a `parts.json` (`id`, `name`, `file`, `w`, `h`).
-The Xplorer (Mech) pictures and names are a snapshot of the BOM maker library on glbadmin.thinkpro.academy (`/content/bom/Parts_Library/Xplorer_Mech`, taken 2026-09-29), resized to 600 px. The PeeCee pictures (20 parts, 2026-10-01) and Tronix pictures (19 parts, 2026-10-10) come from the supplied kit photos, trimmed, put on white and resized to 600 px. A build or BOM can use **several kits** at once: tick them under "Parts libraries" when starting it (or later in ⋯ → Edit details); the part picker then shows every kit, with a filter per kit. A kit whose parts are in use can't be unticked.
+The Xplorer (Mech) pictures and names are a snapshot of the BOM maker library on glbadmin.thinkpro.academy (`/content/bom/Parts_Library/Xplorer_Mech`, taken 2026-09-29), resized to 600 px. The PeeCee pictures (20 parts, 2026-10-01) , Tronix (19 parts, 2026-10-10) and Innovator (Mech) pictures (108 parts, 2026-10-10) come from the supplied kit photos, trimmed, put on white and resized to 600 px. A build or BOM can use **several kits** at once: tick them under "Parts libraries" when starting it (or later in ⋯ → Edit details); the part picker then shows every kit, with a filter per kit. A kit whose parts are in use can't be unticked.
 To add Innovator, Computational or Tronix, add a folder the same way and list it in `kits.json`.
 
 ## Slide layout

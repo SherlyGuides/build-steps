@@ -6,6 +6,11 @@
    "parts": "library/xplorer/parts.json"
   },
   {
+   "id": "innovator",
+   "name": "Innovator (Mech)",
+   "parts": "library/innovator/parts.json"
+  },
+  {
    "id": "peecee",
    "name": "PeeCee",
    "parts": "library/peecee/parts.json"
