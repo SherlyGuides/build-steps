@@ -874,6 +874,14 @@
    "file": "library/innovator/Dynamex_Motor.png",
    "w": 600,
    "h": 460
+  },
+  {
+   "id": "Innovator/Battery.png",
+   "name": "Battery",
+   "kitName": "Battery",
+   "file": "library/innovator/Battery.png",
+   "w": 600,
+   "h": 486
   }
  ]
 }
