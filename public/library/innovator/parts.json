@@ -866,6 +866,14 @@
    "file": "library/innovator/Worm_Gear.png",
    "w": 600,
    "h": 412
+  },
+  {
+   "id": "Tronix/DC M130.png",
+   "name": "DC M130",
+   "kitName": "DC M130",
+   "file": "library/tronix/DC_M130.png",
+   "w": 600,
+   "h": 437
   }
  ]
 }
