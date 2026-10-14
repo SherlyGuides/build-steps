@@ -29,8 +29,8 @@
   },
   {
    "id": "Tronix/DC M130.png",
-   "name": "DC M130",
-   "kitName": "DC M130",
+   "name": "PlayMex Motor",
+   "kitName": "PlayMex Motor",
    "file": "library/tronix/DC_M130.png",
    "w": 600,
    "h": 437
