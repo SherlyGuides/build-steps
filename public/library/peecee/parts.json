@@ -162,14 +162,6 @@
    "file": "library/peecee/Ultrasonic_Sensor_Module.png",
    "w": 600,
    "h": 360
-  },
-  {
-   "id": "Tronix/DC M130.png",
-   "name": "DC M130",
-   "kitName": "DC M130",
-   "file": "library/tronix/DC_M130.png",
-   "w": 600,
-   "h": 437
   }
  ]
 }

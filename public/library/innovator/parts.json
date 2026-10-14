@@ -868,12 +868,12 @@
    "h": 412
   },
   {
-   "id": "Tronix/DC M130.png",
-   "name": "DC M130",
-   "kitName": "DC M130",
-   "file": "library/tronix/DC_M130.png",
+   "id": "Innovator/Dynamex Motor.png",
+   "name": "Dynamex Motor",
+   "kitName": "Dynamex Motor",
+   "file": "library/innovator/Dynamex_Motor.png",
    "w": 600,
-   "h": 437
+   "h": 460
   }
  ]
 }
