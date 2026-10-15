@@ -130,7 +130,7 @@ a { color: inherit; text-decoration: none; }
 }
 .slide > * { position: absolute; }
 .s-heading { color: #fff; font-weight: 700; display: flex; align-items: center; }
-.s-instruction { line-height: 1.2; overflow: hidden; }
+.s-instruction { line-height: 1.2; overflow: hidden; white-space: pre-line; }
 .s-instruction mark { background: #FFFF00; color: #111; }
 .s-part, .s-photo, .s-move { object-fit: contain; }
 .s-name { color: #4B4B4B; text-align: center; line-height: 1.2; }

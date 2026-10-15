@@ -732,6 +732,9 @@ async function stepPreview(build, step, index, library) {
     MOVES[step.move] ? await photoUrl(build.steps[index - 1]?.photo) : "", await photoUrl(step.leftPhoto), picSrcs);
 }
 
+/** Instruction text as typed: Enter starts a new line on the slide; spaces at line ends and extra blank lines are dropped. */
+const cleanInstruction = value => value.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n");
+
 async function renderStep(buildId, stepId, { picker = false } = {}) {
   const build = await getBuild(buildId);
   const index = build?.steps.findIndex(s => s.id === stepId) ?? -1;
@@ -796,7 +799,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
 
         <div class="field">
           <h3>3 · Instruction</h3>
-          <textarea id="instruction" rows="3" maxlength="${MAX_INSTRUCTION}" enterkeyhint="done" autocapitalize="sentences" spellcheck="true" autocorrect="on" lang="en" placeholder="e.g. Take 1X4 brick and fix it on top of the technic brick">${esc(step.instruction)}</textarea>
+          <textarea id="instruction" rows="3" maxlength="${MAX_INSTRUCTION}" enterkeyhint="enter" autocapitalize="sentences" spellcheck="true" autocorrect="on" lang="en" placeholder="e.g. Take 1X4 brick and fix it on top of the technic brick">${esc(step.instruction)}</textarea>
           <p class="hint" id="count"></p>
           <button class="btn secondary wide ai-btn" id="ai">${step.instruction.trim() ? "✨ Improve with AI" : "✨ Write with AI"}</button>
           <div id="ai-out" class="ai-out" aria-live="polite"></div>
@@ -858,7 +861,7 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     count();
     let typing;
     $("#instruction").addEventListener("input", e => {
-      step.instruction = e.target.value.replace(/\s*\n\s*/g, " ");
+      step.instruction = cleanInstruction(e.target.value);
       count();
       const shown = $(".s-instruction");
       shown.innerHTML = step.instruction.trim() ? `<mark>${esc(step.instruction.trim())}</mark>` : "";
@@ -869,12 +872,10 @@ async function renderStep(buildId, stepId, { picker = false } = {}) {
     $("#instruction").addEventListener("blur", save);
     // Grammarly and other writing tools may replace the text without a keystroke: save that too.
     $("#instruction").addEventListener("change", e => {
-      step.instruction = e.target.value.replace(/\s*\n\s*/g, " ");
+      step.instruction = cleanInstruction(e.target.value);
       count();
       save();
     });
-    // The instruction is one line on the slide, so Enter closes the keyboard instead.
-    $("#instruction").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
     $("#instruction").addEventListener("input", () => { $("#ai").textContent = $("#instruction").value.trim() ? "✨ Improve with AI" : "✨ Write with AI"; });
     $("#ai").addEventListener("click", async () => {
       const button = $("#ai"), out = $("#ai-out");

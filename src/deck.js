@@ -243,13 +243,17 @@ export function deckFileName(build) {
 // PowerPoint only shrinks text to fit once someone edits it, so long text is given a smaller
 // size here. Estimate: an average character is about half the font size wide.
 export function fittedSize(text, area, size, minimum = 10) {
-  const words = String(text).split(/\s+/).filter(Boolean);
+  // Lines typed with Enter each start a new line; each one wraps on its own.
+  const paragraphs = String(text).split("\n").map(line => line.split(/\s+/).filter(Boolean));
   for (let pt = size; pt > minimum; pt -= 1) {
     const px = pt * 96 / 72, perLine = Math.max(1, Math.floor(area.w / (px * 0.52)));
-    let lines = 1, used = 0;
-    for (const word of words) {
-      const add = (used ? 1 : 0) + word.length;
-      if (used + add > perLine && used) { lines += 1; used = word.length; } else used += add;
+    let lines = 0;
+    for (const words of paragraphs) {
+      let used = 0; lines += 1;
+      for (const word of words) {
+        const add = (used ? 1 : 0) + word.length;
+        if (used + add > perLine && used) { lines += 1; used = word.length; } else used += add;
+      }
     }
     if (lines * px * 1.2 <= area.h) return pt;
   }
@@ -507,7 +511,8 @@ export async function buildDeck(build, onProgress = () => {}) {
     slide.slideNumber = slideNumber;
     text(slide, stepHeading(index), LAYOUT.heading, { fontSize: LAYOUT.heading.size, color: "FFFFFF", bold: true, valign: "middle" });
     if (step.instruction.trim()) {
-      text(slide, [{ text: step.instruction.trim(), options: { highlight: HIGHLIGHT_COLOR } }], LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, LAYOUT.instruction.minSize), color: TEXT_COLOR, valign: "top" });
+      const lines = step.instruction.trim().split("\n");                // Enter in the instruction = a new line on the slide
+      text(slide, lines.map((line, i) => ({ text: line, options: { highlight: HIGHLIGHT_COLOR, breakLine: i < lines.length - 1 } })), LAYOUT.instruction, { fontSize: fittedSize(step.instruction.trim(), LAYOUT.instruction, LAYOUT.instruction.size, LAYOUT.instruction.minSize), color: TEXT_COLOR, valign: "top" });
     }
 
     const move = MOVES[step.move];
